@@ -53,10 +53,23 @@ class Funcionario:
         return [f for f in cls._funcionarios.values() if f.nome.strip().lower().find(nome) != -1]
 
     @classmethod
-    def buscar_por_dia(cls, dia, mes, ano):
+    def buscar_por_dia(cls, dia, mes, ano, next_month=False):
         if "funcionarios_state" in st.session_state:
             cls._funcionarios = st.session_state["funcionarios_state"]
-        return [f for f in cls._funcionarios.values() if hasattr(f, 'turno') and f.turno and hasattr(f, 'data_admissao') and f.data_admissao.month == mes and f.data_admissao.day == dia]
+        # Determinar a paridade do último dia do mês atual
+        last_day = calendar.monthrange(ano, mes)[1]
+        last_day_parity = last_day % 2 == 0  # True se par, False se ímpar
+        # Ajustar turnos para o próximo mês se solicitado
+        if next_month:
+            if last_day_parity:
+                # Último dia par, próximo mês começa com ímpar invertendo turnos
+                turno_base = "Dia 2" if dia % 2 == 1 else "Dia 1"
+            else:
+                # Último dia ímpar, próximo mês começa com par invertendo turnos
+                turno_base = "Dia 1" if dia % 2 == 1 else "Dia 2"
+        else:
+            turno_base = "Dia 1" if dia % 2 == 1 else "Dia 2"
+        return [f for f in cls._funcionarios.values() if not f.turno or (hasattr(f, 'data_admissao') and f.data_admissao.month == mes and f.data_admissao.day == dia)]
 
 # Inicializa o estado da sessão
 def init_session():
@@ -236,6 +249,13 @@ def visualizacao_geral():
     dias_da_semana = ["Segunda", "Terça", "Quarta", "Quinta", "Sexta", "Sábado", "Domingo"]
 
     st.write(f"Calendário de {calendar.month_name[mes]} {ano}")
+    
+    # Determinar o próximo mês para ajustar turnos
+    next_month = mes + 1 if mes < 12 else 1
+    next_year = ano + 1 if mes == 12 else ano
+    last_day = calendar.monthrange(ano, mes)[1]
+    last_day_parity = last_day % 2 == 0  # True se par, False se ímpar
+
     for semana in cal:
         cols = st.columns(7)
         for i, dia in enumerate(semana):
@@ -245,12 +265,25 @@ def visualizacao_geral():
                 else:
                     st.write(f"{dias_da_semana[i]} {dia}")
                     try:
+                        # Buscar prestadores para o dia atual
                         prestadores = Funcionario.buscar_por_dia(dia, mes, ano)
                         if prestadores:
                             for p in prestadores:
                                 if p.turno and p.local:
                                     st.write(f"{p.nome} (MAT: {p.id}) - {p.tipo_vinculo}")
                                     st.write(f"Turno: {p.turno} ({p.local}, 7h às 19h)")
+                        else:
+                            # Atribuir turno automaticamente se não agendado
+                            turno = "Dia 1" if dia % 2 == 1 else "Dia 2"
+                            prestadores_prox = Funcionario.buscar_por_dia(1, next_month, next_year, next_month)
+                            if last_day_parity:
+                                turno_prox = "Dia 2" if dia % 2 == 1 else "Dia 1"
+                            else:
+                                turno_prox = "Dia 1" if dia % 2 == 1 else "Dia 2"
+                            if prestadores_prox:
+                                for p in prestadores_prox:
+                                    st.write(f"Próximo mês: {p.nome} (MAT: {p.id}) - {p.tipo_vinculo}")
+                                    st.write(f"Turno: {turno_prox} (UH, 7h às 19h)")
                     except Exception as e:
                         st.error(f"Erro ao carregar plantões: {str(e)}")
 
