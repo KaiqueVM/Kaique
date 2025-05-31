@@ -53,23 +53,24 @@ class Funcionario:
         return [f for f in cls._funcionarios.values() if f.nome.strip().lower().find(nome) != -1]
 
     @classmethod
-    def buscar_por_dia(cls, dia, mes, ano, next_month=False):
+    def buscar_por_dia(cls, dia, mes, ano, last_day_parity=None):
         if "funcionarios_state" in st.session_state:
             cls._funcionarios = st.session_state["funcionarios_state"]
-        # Determinar a paridade do último dia do mês atual
-        last_day = calendar.monthrange(ano, mes)[1]
-        last_day_parity = last_day % 2 == 0  # True se par, False se ímpar
-        # Ajustar turnos para o próximo mês se solicitado
-        if next_month:
-            if last_day_parity:
-                # Último dia par, próximo mês começa com ímpar invertendo turnos
-                turno_base = "Dia 2" if dia % 2 == 1 else "Dia 1"
-            else:
-                # Último dia ímpar, próximo mês começa com par invertendo turnos
-                turno_base = "Dia 1" if dia % 2 == 1 else "Dia 2"
-        else:
-            turno_base = "Dia 1" if dia % 2 == 1 else "Dia 2"
-        return [f for f in cls._funcionarios.values() if not f.turno or (hasattr(f, 'data_admissao') and f.data_admissao.month == mes and f.data_admissao.day == dia)]
+        prestadores = [f for f in cls._funcionarios.values() if hasattr(f, 'data_admissao') and f.data_admissao.day == dia and f.data_admissao.month == mes and f.data_admissao.year == ano]
+        # Determinar turno com base na paridade do dia e do último dia do mês anterior
+        for p in prestadores:
+            if not p.turno:
+                # Se não tiver turno definido, atribuir automaticamente
+                if last_day_parity is None:  # Mês atual
+                    p.turno = "Dia 1" if dia % 2 == 1 else "Dia 2"
+                else:  # Próximo mês
+                    if last_day_parity:  # Último dia do mês anterior é par
+                        p.turno = "Dia 2" if dia % 2 == 1 else "Dia 1"
+                    else:  # Último dia do mês anterior é ímpar
+                        p.turno = "Dia 1" if dia % 2 == 1 else "Dia 2"
+            if not p.local:
+                p.local = "UH"  # Local padrão
+        return prestadores
 
 # Inicializa o estado da sessão
 def init_session():
@@ -248,44 +249,103 @@ def visualizacao_geral():
     cal = calendar.monthcalendar(ano, mes)
     dias_da_semana = ["Segunda", "Terça", "Quarta", "Quinta", "Sexta", "Sábado", "Domingo"]
 
-    st.write(f"Calendário de {calendar.month_name[mes]} {ano}")
-    
-    # Determinar o próximo mês para ajustar turnos
-    next_month = mes + 1 if mes < 12 else 1
-    next_year = ano + 1 if mes == 12 else ano
+    # Determinar o último dia do mês atual e sua paridade
     last_day = calendar.monthrange(ano, mes)[1]
     last_day_parity = last_day % 2 == 0  # True se par, False se ímpar
 
+    # Cabeçalho do calendário com dias da semana
+    st.markdown(f"### Calendário de {calendar.month_name[mes]} {ano}")
+    header_cols = st.columns(7)
+    for i, dia_semana in enumerate(dias_da_semana):
+        with header_cols[i]:
+            st.markdown(f"<div style='text-align: center; font-weight: bold;'>{dia_semana}</div>", unsafe_allow_html=True)
+
+    # Grade do calendário
     for semana in cal:
         cols = st.columns(7)
         for i, dia in enumerate(semana):
             with cols[i]:
                 if dia == 0:
-                    st.write(" ")
+                    st.markdown("<div style='border: 1px solid #ddd; padding: 10px; min-height: 100px; background-color: #f0f0f0;'></div>", unsafe_allow_html=True)
                 else:
-                    st.write(f"{dias_da_semana[i]} {dia}")
+                    # Determinar turno com base na paridade do dia
+                    prestadores = Funcionario.buscar_por_dia(dia, mes, ano)
+                    # Ajustar turno automaticamente se não estiver definido
+                    turno_base = "Dia 1" if dia % 2 == 1 else "Dia 2"
+                    # Exibir célula do dia
+                    st.markdown(
+                        f"<div style='border: 1px solid #ddd; padding: 10px; min-height: 100px; background-color: #ffffff;'>"
+                        f"<div style='font-weight: bold;'>{dia}</div>",
+                        unsafe_allow_html=True
+                    )
                     try:
-                        # Buscar prestadores para o dia atual
-                        prestadores = Funcionario.buscar_por_dia(dia, mes, ano)
                         if prestadores:
                             for p in prestadores:
-                                if p.turno and p.local:
-                                    st.write(f"{p.nome} (MAT: {p.id}) - {p.tipo_vinculo}")
-                                    st.write(f"Turno: {p.turno} ({p.local}, 7h às 19h)")
+                                turno = p.turno if p.turno else turno_base
+                                local = p.local if p.local else "UH"
+                                # Colorir turnos para facilitar visualização
+                                bg_color = "#d4edda" if "Dia 1" in turno or "Noite 1" in turno else "#f8d7da"
+                                st.markdown(
+                                    f"<div style='background-color: {bg_color}; padding: 5px; margin: 2px; border-radius: 5px;'>"
+                                    f"{p.nome} ({p.id})<br>"
+                                    f"Turno: {turno} ({local}, 7h às 19h)"
+                                    f"</div>",
+                                    unsafe_allow_html=True
+                                )
                         else:
-                            # Atribuir turno automaticamente se não agendado
-                            turno = "Dia 1" if dia % 2 == 1 else "Dia 2"
-                            prestadores_prox = Funcionario.buscar_por_dia(1, next_month, next_year, next_month)
-                            if last_day_parity:
-                                turno_prox = "Dia 2" if dia % 2 == 1 else "Dia 1"
-                            else:
-                                turno_prox = "Dia 1" if dia % 2 == 1 else "Dia 2"
-                            if prestadores_prox:
-                                for p in prestadores_prox:
-                                    st.write(f"Próximo mês: {p.nome} (MAT: {p.id}) - {p.tipo_vinculo}")
-                                    st.write(f"Turno: {turno_prox} (UH, 7h às 19h)")
+                            st.markdown(
+                                "<div style='color: #888; font-style: italic;'>Nenhum plantão</div>",
+                                unsafe_allow_html=True
+                            )
                     except Exception as e:
                         st.error(f"Erro ao carregar plantões: {str(e)}")
+                    st.markdown("</div>", unsafe_allow_html=True)
+
+    # Visualização do próximo mês (resumo)
+    next_month = mes + 1 if mes < 12 else 1
+    next_year = ano + 1 if mes == 12 else ano
+    st.markdown(f"### Previsão para {calendar.month_name[next_month]} {next_year}")
+    header_cols_next = st.columns(7)
+    for i, dia_semana in enumerate(dias_da_semana):
+        with header_cols_next[i]:
+            st.markdown(f"<div style='text-align: center; font-weight: bold;'>{dia_semana}</div>", unsafe_allow_html=True)
+
+    next_cal = calendar.monthcalendar(next_year, next_month)
+    for semana in next_cal:
+        cols = st.columns(7)
+        for i, dia in enumerate(semana):
+            with cols[i]:
+                if dia == 0:
+                    st.markdown("<div style='border: 1px solid #ddd; padding: 10px; min-height: 100px; background-color: #f0f0f0;'></div>", unsafe_allow_html=True)
+                else:
+                    prestadores = Funcionario.buscar_por_dia(dia, mes, ano, last_day_parity)
+                    turno_base = "Dia 2" if (dia % 2 == 1 and last_day_parity) or (dia % 2 == 0 and not last_day_parity) else "Dia 1"
+                    st.markdown(
+                        f"<div style='border: 1px solid #ddd; padding: 10px; min-height: 100px; background-color: #ffffff;'>"
+                        f"<div style='font-weight: bold;'>{dia}</div>",
+                        unsafe_allow_html=True
+                    )
+                    try:
+                        if prestadores:
+                            for p in prestadores:
+                                turno = p.turno if p.turno else turno_base
+                                local = p.local if p.local else "UH"
+                                bg_color = "#d4edda" if "Dia 1" in turno or "Noite 1" in turno else "#f8d7da"
+                                st.markdown(
+                                    f"<div style='background-color: {bg_color}; padding: 5px; margin: 2px; border-radius: 5px;'>"
+                                    f"{p.nome} ({p.id})<br>"
+                                    f"Turno: {turno} ({local}, 7h às 19h)"
+                                    f"</div>",
+                                    unsafe_allow_html=True
+                                )
+                        else:
+                            st.markdown(
+                                "<div style='color: #888; font-style: italic;'>Nenhum plantão</div>",
+                                unsafe_allow_html=True
+                            )
+                    except Exception as e:
+                        st.error(f"Erro ao carregar plantões: {str(e)}")
+                    st.markdown("</div>", unsafe_allow_html=True)
 
 # Menu principal
 def main_menu():
