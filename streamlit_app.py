@@ -2,6 +2,7 @@ import streamlit as st
 from datetime import date, datetime
 import calendar
 import hashlib
+import time
 
 # Classe Funcionario embutida no mesmo arquivo
 class Funcionario:
@@ -26,7 +27,12 @@ class Funcionario:
         return self._senha_hash == hashlib.sha256(senha.encode()).hexdigest()
 
     def save(self):
-        Funcionario._funcionarios[self.id] = self
+        try:
+            Funcionario._funcionarios[self.id] = self
+            st.write(f"DEBUG: Funcionário salvo com ID {self.id}. Total de funcionários: {len(Funcionario._funcionarios)}")
+        except Exception as e:
+            st.error(f"DEBUG: Erro ao salvar funcionário: {str(e)}")
+            raise
 
     @classmethod
     def get_funcionario_por_id(cls, id):
@@ -113,6 +119,7 @@ def adicionar_supervisor():
                 novo.set_senha(senha)
                 novo.save()
                 st.success("Supervisor cadastrado com sucesso!")
+                time.sleep(1)  # Pequeno atraso para exibir a mensagem
                 st.session_state["pagina"] = "menu"
                 st.rerun()
             except Exception as e:
@@ -140,6 +147,7 @@ def adicionar_prestador():
             return
 
         try:
+            st.write(f"DEBUG: Tentando adicionar prestador - Nome: {nome}, MAT: {mat}, COREN: {coren}")
             existente = Funcionario.get_funcionario_por_id(mat)
             if existente:
                 st.error("Já existe um prestador com essa matrícula.")
@@ -152,11 +160,11 @@ def adicionar_prestador():
             # Verificar se o salvamento foi bem-sucedido
             if mat in Funcionario._funcionarios:
                 st.success("Prestador cadastrado com sucesso!")
+                time.sleep(1)  # Pequeno atraso para exibir a mensagem
                 st.session_state["pagina"] = "menu"
-                # Pequeno atraso para exibir a mensagem antes do rerun
-                st.experimental_rerun()
+                st.rerun()
             else:
-                st.error("Falha ao salvar o prestador.")
+                st.error("Falha ao salvar o prestador. O funcionário não foi encontrado no dicionário.")
         except Exception as e:
             st.error(f"Erro ao cadastrar prestador: {str(e)}")
 
@@ -198,6 +206,7 @@ def gerenciar_prestadores():
                         prestador.local = local
                         prestador.save()
                         st.success(f"Agendamento atualizado para {prestador.nome}!")
+                        time.sleep(1)
                         st.session_state["pagina"] = "menu"
                         st.rerun()
         except Exception as e:
