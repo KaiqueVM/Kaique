@@ -30,6 +30,10 @@ class Funcionario:
         try:
             Funcionario._funcionarios[self.id] = self
             st.write(f"DEBUG: Funcionário salvo com ID {self.id}. Total de funcionários: {len(Funcionario._funcionarios)}")
+            # Opcional: Armazenar em session_state para persistência temporária
+            if "funcionarios_state" not in st.session_state:
+                st.session_state["funcionarios_state"] = {}
+            st.session_state["funcionarios_state"][self.id] = self
         except Exception as e:
             st.error(f"DEBUG: Erro ao salvar funcionário: {str(e)}")
             raise
@@ -52,6 +56,9 @@ def init_session():
         st.session_state["autenticado"] = False
         st.session_state["usuario"] = None
         st.session_state["pagina"] = "login"
+    # Inicializar o estado dos funcionários, se não existir
+    if "funcionarios_state" not in st.session_state:
+        st.session_state["funcionarios_state"] = {}
 
 # Tela de login
 def login_screen():
@@ -176,6 +183,7 @@ def gerenciar_prestadores():
         try:
             prestadores = Funcionario.buscar_por_nome(nome_busca)
             st.write(f"DEBUG: Prestadores encontrados: {len(prestadores)}")
+            st.write(f"DEBUG: Funcionários no dicionário: {len(Funcionario._funcionarios)}")
             if not prestadores:
                 st.warning("Nenhum prestador encontrado com esse nome.")
                 return
