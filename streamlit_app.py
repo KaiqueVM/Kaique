@@ -38,7 +38,7 @@ class Funcionario:
 
     @classmethod
     def buscar_por_dia(cls, dia, mes, ano):
-        return [f for f in cls._funcionarios.values() if f.turno and f.data_admissao.month == mes and f.data_admissao.day == dia]
+        return [f for f in cls._funcionarios.values() if hasattr(f, 'turno') and f.turno and hasattr(f, 'data_admissao') and f.data_admissao.month == mes and f.data_admissao.day == dia]
 
 # Inicializa o estado da sessão
 def init_session():
@@ -132,11 +132,10 @@ def adicionar_prestador():
             ["AJ - PROGRAMA ANJO", "FT - EFETIVADO"],
             key="vinculo_prestador"
         )
-        senha = st.text_input("Senha para o prestador", type="password", key="senha_prestador")
         salvar = st.form_submit_button("Salvar")
 
     if salvar:
-        if not nome or not mat or not coren or not cargo or not senha:
+        if not nome or not mat or not coren or not cargo:
             st.warning("Por favor, preencha todos os campos obrigatórios.")
             return
 
@@ -147,7 +146,6 @@ def adicionar_prestador():
                 return
 
             novo = Funcionario(mat, nome, coren, cargo, tipo_vinculo, data_admissao, gerente=False)
-            novo.set_senha(senha)
             novo.save()
             st.success("Prestador cadastrado com sucesso!")
             st.session_state["pagina"] = "menu"
