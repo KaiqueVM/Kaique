@@ -271,12 +271,12 @@ def visualizacao_geral():
         for i, dia in enumerate(semana):
             with cols[i]:
                 if dia == 0:
-                    st.markdown("<div style='border: 1px solid #ddd; padding: 5px; min-height: 50px; background-color: #f0f0f0;'></div>", unsafe_allow_html=True)
+                    st.markdown("<div style='border: 1px solid #ccc; padding: 3px; min-height: 40px; background-color: #e9ecef;'></div>", unsafe_allow_html=True)
                 else:
                     # Buscar prestadores agendados para o dia
                     prestadores = Funcionario.buscar_por_dia(dia, mes, ano, last_day_parity)
-                    cell_content = f"<div style='border: 1px solid #ddd; padding: 5px; min-height: 50px; background-color: #ffffff;'>"
-                    cell_content += f"<div style='font-weight: bold; text-align: center;'>{dia}</div>"
+                    cell_content = f"<div style='border: 1px solid #ccc; padding: 3px; min-height: 40px; background-color: #f8f9fa;'>"
+                    cell_content += f"<div style='font-weight: bold; text-align: center; font-size: 14px;'>{dia}</div>"
                     try:
                         if prestadores:
                             for p in prestadores:
@@ -284,8 +284,9 @@ def visualizacao_geral():
                                 horario = "7h às 19h" if "Dia" in turno_atribuido else "19h às 7h"
                                 bg_color = "#d4edda" if "1" in turno_atribuido else "#f8d7da"
                                 cell_content += (
-                                    f"<div style='background-color: {bg_color}; padding: 2px; margin: 2px; border-radius: 3px; text-align: center; font-size: 12px;'>"
-                                    f"{p.nome} ({p.id})<br>Turno: {turno_atribuido} ({horario})"
+                                    f"<div style='background-color: {bg_color}; padding: 2px; margin: 1px; border-radius: 3px; display: flex; justify-content: space-between; font-size: 12px;'>"
+                                    f"<div style='flex: 2; text-align: left;'>{p.nome} ({p.id})<br>{turno_atribuido}</div>"
+                                    f"<div style='flex: 1; text-align: right;'>{horario}</div>"
                                     f"</div>"
                                 )
                         else:
@@ -310,11 +311,11 @@ def visualizacao_geral():
         for i, dia in enumerate(semana):
             with cols[i]:
                 if dia == 0:
-                    st.markdown("<div style='border: 1px solid #ddd; padding: 5px; min-height: 50px; background-color: #f0f0f0;'></div>", unsafe_allow_html=True)
+                    st.markdown("<div style='border: 1px solid #ccc; padding: 3px; min-height: 40px; background-color: #e9ecef;'></div>", unsafe_allow_html=True)
                 else:
                     prestadores = Funcionario.buscar_por_dia(dia, next_month, next_year, last_day_parity)
-                    cell_content = f"<div style='border: 1px solid #ddd; padding: 5px; min-height: 50px; background-color: #ffffff;'>"
-                    cell_content += f"<div style='font-weight: bold; text-align: center;'>{dia}</div>"
+                    cell_content = f"<div style='border: 1px solid #ccc; padding: 3px; min-height: 40px; background-color: #f8f9fa;'>"
+                    cell_content += f"<div style='font-weight: bold; text-align: center; font-size: 14px;'>{dia}</div>"
                     try:
                         if prestadores:
                             for p in prestadores:
@@ -322,8 +323,9 @@ def visualizacao_geral():
                                 horario = "7h às 19h" if "Dia" in turno_atribuido else "19h às 7h"
                                 bg_color = "#d4edda" if "1" in turno_atribuido else "#f8d7da"
                                 cell_content += (
-                                    f"<div style='background-color: {bg_color}; padding: 2px; margin: 2px; border-radius: 3px; text-align: center; font-size: 12px;'>"
-                                    f"{p.nome} ({p.id})<br>Turno: {turno_atribuido} ({horario})"
+                                    f"<div style='background-color: {bg_color}; padding: 2px; margin: 1px; border-radius: 3px; display: flex; justify-content: space-between; font-size: 12px;'>"
+                                    f"<div style='flex: 2; text-align: left;'>{p.nome} ({p.id})<br>{turno_atribuido}</div>"
+                                    f"<div style='flex: 1; text-align: right;'>{horario}</div>"
                                     f"</div>"
                                 )
                         else:
