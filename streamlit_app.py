@@ -71,7 +71,6 @@ def login_screen():
                 try:
                     funcionario = Funcionario.get_funcionario_por_id(coren)
                     if not funcionario:
-                        # Cria gerente padrão se não existir
                         gerente = Funcionario("56.127", "Gerente Padrão", "56.127", "gerente", "FT - EFETIVADO", date.today(), gerente=True)
                         gerente.set_senha("147258")
                         gerente.save()
@@ -176,6 +175,7 @@ def gerenciar_prestadores():
     if nome_busca:
         try:
             prestadores = Funcionario.buscar_por_nome(nome_busca)
+            st.write(f"DEBUG: Prestadores encontrados: {len(prestadores)}")
             if not prestadores:
                 st.warning("Nenhum prestador encontrado com esse nome.")
                 return
@@ -269,7 +269,7 @@ def logout_button():
         st.session_state["autenticado"] = False
         st.session_state["usuario"] = None
         st.session_state["pagina"] = "login"
-        st.experimental_rerun()
+        st.rerun()
 
 # Código principal
 def main():
