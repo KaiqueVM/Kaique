@@ -145,11 +145,18 @@ def adicionar_prestador():
                 st.error("Já existe um prestador com essa matrícula.")
                 return
 
+            # Criar e salvar o novo funcionário
             novo = Funcionario(mat, nome, coren, cargo, tipo_vinculo, data_admissao, gerente=False)
             novo.save()
-            st.success("Prestador cadastrado com sucesso!")
-            st.session_state["pagina"] = "menu"
-            st.rerun()
+
+            # Verificar se o salvamento foi bem-sucedido
+            if mat in Funcionario._funcionarios:
+                st.success("Prestador cadastrado com sucesso!")
+                st.session_state["pagina"] = "menu"
+                # Pequeno atraso para exibir a mensagem antes do rerun
+                st.experimental_rerun()
+            else:
+                st.error("Falha ao salvar o prestador.")
         except Exception as e:
             st.error(f"Erro ao cadastrar prestador: {str(e)}")
 
