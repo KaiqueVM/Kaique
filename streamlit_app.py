@@ -29,25 +29,33 @@ class Funcionario:
     def save(self):
         try:
             Funcionario._funcionarios[self.id] = self
-            st.write(f"DEBUG: Funcionário salvo com ID {self.id}. Total de funcionários: {len(Funcionario._funcionarios)}")
-            # Opcional: Armazenar em session_state para persistência temporária
             if "funcionarios_state" not in st.session_state:
                 st.session_state["funcionarios_state"] = {}
             st.session_state["funcionarios_state"][self.id] = self
+            st.write(f"DEBUG: Funcionário salvo com ID {self.id}. Total de funcionários: {len(Funcionario._funcionarios)}")
         except Exception as e:
             st.error(f"DEBUG: Erro ao salvar funcionário: {str(e)}")
             raise
 
     @classmethod
     def get_funcionario_por_id(cls, id):
+        if "funcionarios_state" in st.session_state:
+            cls._funcionarios = st.session_state["funcionarios_state"]
         return cls._funcionarios.get(id)
 
     @classmethod
     def buscar_por_nome(cls, nome):
-        return [f for f in cls._funcionarios.values() if nome.lower() in f.nome.lower()]
+        if "funcionarios_state" in st.session_state:
+            cls._funcionarios = st.session_state["funcionarios_state"]
+        st.write(f"DEBUG: Nomes no dicionário: {[f.nome for f in cls._funcionarios.values()]}")
+        nome = nome.strip().lower()
+        st.write(f"DEBUG: Termo de busca (após strip): '{nome}'")
+        return [f for f in cls._funcionarios.values() if f.nome.strip().lower().find(nome) != -1]
 
     @classmethod
     def buscar_por_dia(cls, dia, mes, ano):
+        if "funcionarios_state" in st.session_state:
+            cls._funcionarios = st.session_state["funcionarios_state"]
         return [f for f in cls._funcionarios.values() if hasattr(f, 'turno') and f.turno and hasattr(f, 'data_admissao') and f.data_admissao.month == mes and f.data_admissao.day == dia]
 
 # Inicializa o estado da sessão
@@ -56,9 +64,9 @@ def init_session():
         st.session_state["autenticado"] = False
         st.session_state["usuario"] = None
         st.session_state["pagina"] = "login"
-    # Inicializar o estado dos funcionários, se não existir
     if "funcionarios_state" not in st.session_state:
         st.session_state["funcionarios_state"] = {}
+    Funcionario._funcionarios = st.session_state["funcionarios_state"]
 
 # Tela de login
 def login_screen():
@@ -125,7 +133,7 @@ def adicionar_supervisor():
                 novo.set_senha(senha)
                 novo.save()
                 st.success("Supervisor cadastrado com sucesso!")
-                time.sleep(1)  # Pequeno atraso para exibir a mensagem
+                time.sleep(1)
                 st.session_state["pagina"] = "menu"
                 st.rerun()
             except Exception as e:
@@ -159,14 +167,12 @@ def adicionar_prestador():
                 st.error("Já existe um prestador com essa matrícula.")
                 return
 
-            # Criar e salvar o novo funcionário
             novo = Funcionario(mat, nome, coren, cargo, tipo_vinculo, data_admissao, gerente=False)
             novo.save()
 
-            # Verificar se o salvamento foi bem-sucedido
             if mat in Funcionario._funcionarios:
                 st.success("Prestador cadastrado com sucesso!")
-                time.sleep(1)  # Pequeno atraso para exibir a mensagem
+                time.sleep(1)
                 st.session_state["pagina"] = "menu"
                 st.rerun()
             else:
