@@ -56,21 +56,26 @@ class Funcionario:
     def buscar_por_dia(cls, dia, mes, ano, last_day_parity=None):
         if "funcionarios_state" in st.session_state:
             cls._funcionarios = st.session_state["funcionarios_state"]
-        # Filtrar prestadores com turno definido
-        prestadores = [f for f in cls._funcionarios.values() if f.turno]
-        for p in prestadores:
-            if not p.local:
-                p.local = "UH"
-            # Atribuir turno automaticamente se não definido
-            if not p.turno or p.turno is None:
+        # Filtrar prestadores com turno definido e corresponder à paridade do dia
+        prestadores = []
+        for f in cls._funcionarios.values():
+            if f.turno:
                 if last_day_parity is None:  # Mês atual
-                    p.turno = "Dia 1" if dia % 2 == 1 else "Dia 2"
+                    if (f.turno == "Dia 1" and dia % 2 == 1) or (f.turno == "Dia 2" and dia % 2 == 0) or \
+                       (f.turno == "Noite 1" and dia % 2 == 1) or (f.turno == "Noite 2" and dia % 2 == 0):
+                        prestadores.append(f)
                 else:  # Próximo mês
                     if last_day_parity:  # Último dia par
-                        p.turno = "Dia 2" if dia % 2 == 1 else "Dia 1"
+                        if (f.turno == "Dia 2" and dia % 2 == 1) or (f.turno == "Dia 1" and dia % 2 == 0) or \
+                           (f.turno == "Noite 2" and dia % 2 == 1) or (f.turno == "Noite 1" and dia % 2 == 0):
+                            prestadores.append(f)
                     else:  # Último dia ímpar
-                        p.turno = "Dia 1" if dia % 2 == 1 else "Dia 2"
-        return prestadores  # Retorna todos os prestadores agendados
+                        if (f.turno == "Dia 1" and dia % 2 == 1) or (f.turno == "Dia 2" and dia % 2 == 0) or \
+                           (f.turno == "Noite 1" and dia % 2 == 1) or (f.turno == "Noite 2" and dia % 2 == 0):
+                            prestadores.append(f)
+            if not f.local:
+                f.local = "UH"
+        return prestadores
 
 # Inicializa o estado da sessão
 def init_session():
@@ -266,27 +271,27 @@ def visualizacao_geral():
         for i, dia in enumerate(semana):
             with cols[i]:
                 if dia == 0:
-                    st.markdown("<div style='border: 1px solid #ddd; padding: 10px; min-height: 100px; background-color: #f0f0f0;'></div>", unsafe_allow_html=True)
+                    st.markdown("<div style='border: 1px solid #ddd; padding: 5px; min-height: 50px; background-color: #f0f0f0;'></div>", unsafe_allow_html=True)
                 else:
                     # Buscar prestadores agendados para o dia
                     prestadores = Funcionario.buscar_por_dia(dia, mes, ano, last_day_parity)
-                    cell_content = f"<div style='border: 1px solid #ddd; padding: 10px; min-height: 100px; background-color: #ffffff;'>"
+                    cell_content = f"<div style='border: 1px solid #ddd; padding: 5px; min-height: 50px; background-color: #ffffff;'>"
                     cell_content += f"<div style='font-weight: bold; text-align: center;'>{dia}</div>"
                     try:
                         if prestadores:
                             for p in prestadores:
-                                turno_atribuido = p.turno if p.turno else ("Dia 1" if dia % 2 == 1 else "Dia 2")
-                                local = p.local if p.local else "UH"
-                                bg_color = "#d4edda" if "Dia 1" in turno_atribuido or "Noite 1" in turno_atribuido else "#f8d7da"
+                                turno_atribuido = p.turno
+                                horario = "7h às 19h" if "Dia" in turno_atribuido else "19h às 7h"
+                                bg_color = "#d4edda" if "1" in turno_atribuido else "#f8d7da"
                                 cell_content += (
-                                    f"<div style='background-color: {bg_color}; padding: 5px; margin: 2px; border-radius: 5px; text-align: center;'>"
-                                    f"{p.nome} ({p.id})<br>Turno: {turno_atribuido} ({local}, 7h às 19h)"
+                                    f"<div style='background-color: {bg_color}; padding: 2px; margin: 2px; border-radius: 3px; text-align: center; font-size: 12px;'>"
+                                    f"{p.nome} ({p.id})<br>Turno: {turno_atribuido} ({horario})"
                                     f"</div>"
                                 )
                         else:
-                            cell_content += "<div style='color: #888; font-style: italic; text-align: center;'>Nenhum plantão</div>"
+                            cell_content += "<div style='color: #888; font-style: italic; text-align: center; font-size: 12px;'>Nenhum plantão</div>"
                     except Exception as e:
-                        cell_content += f"<div style='color: red; text-align: center;'>Erro: {str(e)}</div>"
+                        cell_content += f"<div style='color: red; text-align: center; font-size: 12px;'>Erro: {str(e)}</div>"
                     cell_content += "</div>"
                     st.markdown(cell_content, unsafe_allow_html=True)
 
@@ -305,26 +310,26 @@ def visualizacao_geral():
         for i, dia in enumerate(semana):
             with cols[i]:
                 if dia == 0:
-                    st.markdown("<div style='border: 1px solid #ddd; padding: 10px; min-height: 100px; background-color: #f0f0f0;'></div>", unsafe_allow_html=True)
+                    st.markdown("<div style='border: 1px solid #ddd; padding: 5px; min-height: 50px; background-color: #f0f0f0;'></div>", unsafe_allow_html=True)
                 else:
                     prestadores = Funcionario.buscar_por_dia(dia, next_month, next_year, last_day_parity)
-                    cell_content = f"<div style='border: 1px solid #ddd; padding: 10px; min-height: 100px; background-color: #ffffff;'>"
+                    cell_content = f"<div style='border: 1px solid #ddd; padding: 5px; min-height: 50px; background-color: #ffffff;'>"
                     cell_content += f"<div style='font-weight: bold; text-align: center;'>{dia}</div>"
                     try:
                         if prestadores:
                             for p in prestadores:
-                                turno_atribuido = p.turno if p.turno else ("Dia 2" if (dia % 2 == 1 and last_day_parity) or (dia % 2 == 0 and not last_day_parity) else "Dia 1")
-                                local = p.local if p.local else "UH"
-                                bg_color = "#d4edda" if "Dia 1" in turno_atribuido or "Noite 1" in turno_atribuido else "#f8d7da"
+                                turno_atribuido = p.turno
+                                horario = "7h às 19h" if "Dia" in turno_atribuido else "19h às 7h"
+                                bg_color = "#d4edda" if "1" in turno_atribuido else "#f8d7da"
                                 cell_content += (
-                                    f"<div style='background-color: {bg_color}; padding: 5px; margin: 2px; border-radius: 5px; text-align: center;'>"
-                                    f"{p.nome} ({p.id})<br>Turno: {turno_atribuido} ({local}, 7h às 19h)"
+                                    f"<div style='background-color: {bg_color}; padding: 2px; margin: 2px; border-radius: 3px; text-align: center; font-size: 12px;'>"
+                                    f"{p.nome} ({p.id})<br>Turno: {turno_atribuido} ({horario})"
                                     f"</div>"
                                 )
                         else:
-                            cell_content += "<div style='color: #888; font-style: italic; text-align: center;'>Nenhum plantão</div>"
+                            cell_content += "<div style='color: #888; font-style: italic; text-align: center; font-size: 12px;'>Nenhum plantão</div>"
                     except Exception as e:
-                        cell_content += f"<div style='color: red; text-align: center;'>Erro: {str(e)}</div>"
+                        cell_content += f"<div style='color: red; text-align: center; font-size: 12px;'>Erro: {str(e)}</div>"
                     cell_content += "</div>"
                     st.markdown(cell_content, unsafe_allow_html=True)
 
