@@ -267,7 +267,7 @@ def gerenciar_prestadores():
         except Exception as e:
             st.error(f"Erro ao buscar prestadores: {str(e)}")
 
-# Tela de visualização geral
+# Tela de visualizacao geral
 def visualizacao_geral():
     st.header("Visualização Geral dos Plantões")
     
@@ -313,7 +313,7 @@ def visualizacao_geral():
                                     sigla = "AJ" if p.tipo_vinculo == "AJ - PROGRAMA ANJO" else "FT"
                                     cell_content += (
                                         f"<div style='background-color: {bg_color}; padding: 1px; margin: 1px; border-radius: 2px; font-size: 10px; text-align: left; color: #000000;'>"
-                                        f"{p.nome} ({p.coren}) {sigla}<br>{turno_atribuido}"
+                                        f"{p.nome} ({p.coren}) {sigla} {p.local}<br>{turno_atribuido}"
                                         f"</div>"
                                     )
 
@@ -326,7 +326,7 @@ def visualizacao_geral():
                                     sigla = "AJ" if p.tipo_vinculo == "AJ - PROGRAMA ANJO" else "FT"
                                     cell_content += (
                                         f"<div style='background-color: {bg_color}; padding: 1px; margin: 1px; border-radius: 2px; font-size: 10px; text-align: left; color: #000000;'>"
-                                        f"{p.nome} ({p.coren}) {sigla}<br>{turno_atribuido}"
+                                        f"{p.nome} ({p.coren}) {sigla} {p.local}<br>{turno_atribuido}"
                                         f"</div>"
                                     )
                         else:
@@ -372,7 +372,7 @@ def visualizacao_geral():
                                     sigla = "AJ" if p.tipo_vinculo == "AJ - PROGRAMA ANJO" else "FT"
                                     cell_content += (
                                         f"<div style='background-color: {bg_color}; padding: 1px; margin: 1px; border-radius: 2px; font-size: 10px; text-align: left; color: #000000;'>"
-                                        f"{p.nome} ({p.coren}) {sigla}<br>{turno_atribuido}"
+                                        f"{p.nome} ({p.coren}) {sigla} {p.local}<br>{turno_atribuido}"
                                         f"</div>"
                                     )
 
@@ -385,7 +385,7 @@ def visualizacao_geral():
                                     sigla = "AJ" if p.tipo_vinculo == "AJ - PROGRAMA ANJO" else "FT"
                                     cell_content += (
                                         f"<div style='background-color: {bg_color}; padding: 1px; margin: 1px; border-radius: 2px; font-size: 10px; text-align: left; color: #000000;'>"
-                                        f"{p.nome} ({p.coren}) {sigla}<br>{turno_atribuido}"
+                                        f"{p.nome} ({p.coren}) {sigla} {p.local}<br>{turno_atribuido}"
                                         f"</div>"
                                     )
                         else:
