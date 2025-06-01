@@ -1,5 +1,5 @@
 import streamlit as st
-from datetime import date, datetime
+from datetime import date, datetime, timedelta
 import calendar
 import hashlib
 import time
@@ -77,7 +77,7 @@ class Funcionario:
                 f.local = "UH"
         return prestadores
 
-# Inicializa o estado da sessão
+# Inicializa o estado da sessão e atualiza tipo_vinculo automaticamente
 def init_session():
     if "autenticado" not in st.session_state:
         st.session_state["autenticado"] = False
@@ -85,7 +85,18 @@ def init_session():
         st.session_state["pagina"] = "login"
     if "funcionarios_state" not in st.session_state:
         st.session_state["funcionarios_state"] = {}
+    
     Funcionario._funcionarios = st.session_state["funcionarios_state"]
+    
+    # Atualizar automaticamente AJ para FT após 7 dias
+    hoje = date.today()
+    for funcionario in Funcionario._funcionarios.values():
+        if funcionario.tipo_vinculo == "AJ - PROGRAMA ANJO":
+            dias_desde_admissao = (hoje - funcionario.data_admissao).days
+            if dias_desde_admissao >= 7:
+                funcionario.tipo_vinculo = "FT - EFETIVADO"
+                funcionario.save()
+                st.write(f"DEBUG: Funcionário {funcionario.nome} movido de AJ para FT após {dias_desde_admissao} dias.")
 
 # Tela de login
 def login_screen():
@@ -299,9 +310,10 @@ def visualizacao_geral():
                                 for p in prestadores_dia:
                                     turno_atribuido = p.turno
                                     bg_color = "#d4edda" if "1" in turno_atribuido else "#f8d7da"
+                                    sigla = "AJ" if p.tipo_vinculo == "AJ - PROGRAMA ANJO" else "FT"
                                     cell_content += (
                                         f"<div style='background-color: {bg_color}; padding: 1px; margin: 1px; border-radius: 2px; font-size: 10px; text-align: left; color: #000000;'>"
-                                        f"{p.nome} ({p.id})<br>{turno_atribuido}"
+                                        f"{p.nome} ({p.coren}) {sigla}<br>{turno_atribuido}"
                                         f"</div>"
                                     )
 
@@ -311,9 +323,10 @@ def visualizacao_geral():
                                 for p in prestadores_noite:
                                     turno_atribuido = p.turno
                                     bg_color = "#d4edda" if "1" in turno_atribuido else "#f8d7da"
+                                    sigla = "AJ" if p.tipo_vinculo == "AJ - PROGRAMA ANJO" else "FT"
                                     cell_content += (
                                         f"<div style='background-color: {bg_color}; padding: 1px; margin: 1px; border-radius: 2px; font-size: 10px; text-align: left; color: #000000;'>"
-                                        f"{p.nome} ({p.id})<br>{turno_atribuido}"
+                                        f"{p.nome} ({p.coren}) {sigla}<br>{turno_atribuido}"
                                         f"</div>"
                                     )
                         else:
@@ -331,7 +344,7 @@ def visualizacao_geral():
 
     header_cols_next = st.columns(7)
     for i, dia_semana in enumerate(dias_da_semana):
-        with header_cols[i]:
+        with header_cols_next[i]:
             st.markdown(f"<div style='text-align: center; font-weight: bold;'>{dia_semana}</div>", unsafe_allow_html=True)
 
     for semana in next_cal:
@@ -356,9 +369,10 @@ def visualizacao_geral():
                                 for p in prestadores_dia:
                                     turno_atribuido = p.turno
                                     bg_color = "#d4edda" if "1" in turno_atribuido else "#f8d7da"
+                                    sigla = "AJ" if p.tipo_vinculo == "AJ - PROGRAMA ANJO" else "FT"
                                     cell_content += (
                                         f"<div style='background-color: {bg_color}; padding: 1px; margin: 1px; border-radius: 2px; font-size: 10px; text-align: left; color: #000000;'>"
-                                        f"{p.nome} ({p.id})<br>{turno_atribuido}"
+                                        f"{p.nome} ({p.coren}) {sigla}<br>{turno_atribuido}"
                                         f"</div>"
                                     )
 
@@ -368,9 +382,10 @@ def visualizacao_geral():
                                 for p in prestadores_noite:
                                     turno_atribuido = p.turno
                                     bg_color = "#d4edda" if "1" in turno_atribuido else "#f8d7da"
+                                    sigla = "AJ" if p.tipo_vinculo == "AJ - PROGRAMA ANJO" else "FT"
                                     cell_content += (
                                         f"<div style='background-color: {bg_color}; padding: 1px; margin: 1px; border-radius: 2px; font-size: 10px; text-align: left; color: #000000;'>"
-                                        f"{p.nome} ({p.id})<br>{turno_atribuido}"
+                                        f"{p.nome} ({p.coren}) {sigla}<br>{turno_atribuido}"
                                         f"</div>"
                                     )
                         else:
