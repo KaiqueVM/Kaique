@@ -269,9 +269,6 @@ def visualizacao_geral():
     last_day = calendar.monthrange(ano, mes)[1]
     last_day_parity = last_day % 2 == 0  # True se par, False se ímpar
 
-    # Verificar se há prestadores agendados no mês
-    tem_prestadores = any(Funcionario.buscar_por_dia(dia, mes, ano, last_day_parity) for dia in range(1, last_day + 1))
-
     # Grade do calendário
     st.markdown(f"### Calendário de {calendar.month_name[mes]} {ano}")
     header_cols = st.columns(7)
@@ -284,27 +281,43 @@ def visualizacao_geral():
         for i, dia in enumerate(semana):
             with cols[i]:
                 if dia == 0:
-                    if tem_prestadores:
-                        st.markdown("<div style='border: 1px solid #bbb; padding: 2px; min-height: 30px; background-color: #e9ecef;'></div>", unsafe_allow_html=True)
-                    else:
-                        st.markdown("<div style='border: 1px solid #bbb; padding: 2px; min-height: 30px; background-color: #dee2e6;'></div>", unsafe_allow_html=True)
+                    st.markdown("<div style='border: 1px solid #bbb; padding: 2px; min-height: 30px; background-color: #343a40;'></div>", unsafe_allow_html=True)
                 else:
                     # Buscar prestadores agendados para o dia
                     prestadores = Funcionario.buscar_por_dia(dia, mes, ano, last_day_parity)
-                    cell_content = f"<div style='border: 1px solid #bbb; padding: 2px; min-height: 30px; background-color: #e9ecef;'>"
-                    cell_content += f"<div style='font-weight: bold; text-align: center; font-size: 12px;'>{dia}</div>"
+                    cell_content = f"<div style='border: 1px solid #bbb; padding: 2px; min-height: 30px; background-color: #343a40;'>"
+                    cell_content += f"<div style='font-weight: bold; text-align: center; font-size: 12px; color: #ffffff;'>{dia}</div>"
                     try:
                         if prestadores:
-                            for p in prestadores:
-                                turno_atribuido = p.turno
-                                bg_color = "#d4edda" if "1" in turno_atribuido else "#f8d7da"
-                                cell_content += (
-                                    f"<div style='background-color: {bg_color}; padding: 1px; margin: 1px; border-radius: 2px; font-size: 10px; text-align: left;'>"
-                                    f"{p.nome} ({p.id})<br>{turno_atribuido}"
-                                    f"</div>"
-                                )
+                            # Separar prestadores por turno (Dia e Noite)
+                            prestadores_dia = [p for p in prestadores if "Dia" in p.turno]
+                            prestadores_noite = [p for p in prestadores if "Noite" in p.turno]
+
+                            # Seção para o turno do dia (7h às 19h)
+                            if prestadores_dia:
+                                cell_content += "<div style='font-size: 10px; font-weight: bold; text-align: center; margin-top: 2px; color: #ffffff;'>7h às 19h</div>"
+                                for p in prestadores_dia:
+                                    turno_atribuido = p.turno
+                                    bg_color = "#d4edda" if "1" in turno_atribuido else "#f8d7da"
+                                    cell_content += (
+                                        f"<div style='background-color: {bg_color}; padding: 1px; margin: 1px; border-radius: 2px; font-size: 10px; text-align: left; color: #000000;'>"
+                                        f"{p.nome} ({p.id})<br>{turno_atribuido}"
+                                        f"</div>"
+                                    )
+
+                            # Seção para o turno da noite (19h às 7h)
+                            if prestadores_noite:
+                                cell_content += "<div style='font-size: 10px; font-weight: bold; text-align: center; margin-top: 2px; color: #ffffff;'>19h às 7h</div>"
+                                for p in prestadores_noite:
+                                    turno_atribuido = p.turno
+                                    bg_color = "#d4edda" if "1" in turno_atribuido else "#f8d7da"
+                                    cell_content += (
+                                        f"<div style='background-color: {bg_color}; padding: 1px; margin: 1px; border-radius: 2px; font-size: 10px; text-align: left; color: #000000;'>"
+                                        f"{p.nome} ({p.id})<br>{turno_atribuido}"
+                                        f"</div>"
+                                    )
                         else:
-                            cell_content += "<div style='color: #666; font-style: italic; text-align: center; font-size: 10px;'>Nenhum plantão</div>"
+                            cell_content += "<div style='color: #bbbbbb; font-style: italic; text-align: center; font-size: 10px;'>Nenhum plantão</div>"
                     except Exception as e:
                         cell_content += f"<div style='color: red; text-align: center; font-size: 10px;'>Erro: {str(e)}</div>"
                     cell_content += "</div>"
@@ -315,11 +328,10 @@ def visualizacao_geral():
     next_month = mes + 1 if mes < 12 else 1
     next_year = ano + 1 if mes == 12 else ano
     next_cal = calendar.monthcalendar(next_year, next_month)
-    tem_prestadores_next = any(Funcionario.buscar_por_dia(dia, next_month, next_year, last_day_parity) for dia in range(1, calendar.monthrange(next_year, next_month)[1] + 1))
 
     header_cols_next = st.columns(7)
     for i, dia_semana in enumerate(dias_da_semana):
-        with header_cols_next[i]:
+        with header_cols[i]:
             st.markdown(f"<div style='text-align: center; font-weight: bold;'>{dia_semana}</div>", unsafe_allow_html=True)
 
     for semana in next_cal:
@@ -327,26 +339,42 @@ def visualizacao_geral():
         for i, dia in enumerate(semana):
             with cols[i]:
                 if dia == 0:
-                    if tem_prestadores_next:
-                        st.markdown("<div style='border: 1px solid #bbb; padding: 2px; min-height: 30px; background-color: #e9ecef;'></div>", unsafe_allow_html=True)
-                    else:
-                        st.markdown("<div style='border: 1px solid #bbb; padding: 2px; min-height: 30px; background-color: #dee2e6;'></div>", unsafe_allow_html=True)
+                    st.markdown("<div style='border: 1px solid #bbb; padding: 2px; min-height: 30px; background-color: #343a40;'></div>", unsafe_allow_html=True)
                 else:
                     prestadores = Funcionario.buscar_por_dia(dia, next_month, next_year, last_day_parity)
-                    cell_content = f"<div style='border: 1px solid #bbb; padding: 2px; min-height: 30px; background-color: #e9ecef;'>"
-                    cell_content += f"<div style='font-weight: bold; text-align: center; font-size: 12px;'>{dia}</div>"
+                    cell_content = f"<div style='border: 1px solid #bbb; padding: 2px; min-height: 30px; background-color: #343a40;'>"
+                    cell_content += f"<div style='font-weight: bold; text-align: center; font-size: 12px; color: #ffffff;'>{dia}</div>"
                     try:
                         if prestadores:
-                            for p in prestadores:
-                                turno_atribuido = p.turno
-                                bg_color = "#d4edda" if "1" in turno_atribuido else "#f8d7da"
-                                cell_content += (
-                                    f"<div style='background-color: {bg_color}; padding: 1px; margin: 1px; border-radius: 2px; font-size: 10px; text-align: left;'>"
-                                    f"{p.nome} ({p.id})<br>{turno_atribuido}"
-                                    f"</div>"
-                                )
+                            # Separar prestadores por turno (Dia e Noite)
+                            prestadores_dia = [p for p in prestadores if "Dia" in p.turno]
+                            prestadores_noite = [p for p in prestadores if "Noite" in p.turno]
+
+                            # Seção para o turno do dia (7h às 19h)
+                            if prestadores_dia:
+                                cell_content += "<div style='font-size: 10px; font-weight: bold; text-align: center; margin-top: 2px; color: #ffffff;'>7h às 19h</div>"
+                                for p in prestadores_dia:
+                                    turno_atribuido = p.turno
+                                    bg_color = "#d4edda" if "1" in turno_atribuido else "#f8d7da"
+                                    cell_content += (
+                                        f"<div style='background-color: {bg_color}; padding: 1px; margin: 1px; border-radius: 2px; font-size: 10px; text-align: left; color: #000000;'>"
+                                        f"{p.nome} ({p.id})<br>{turno_atribuido}"
+                                        f"</div>"
+                                    )
+
+                            # Seção para o turno da noite (19h às 7h)
+                            if prestadores_noite:
+                                cell_content += "<div style='font-size: 10px; font-weight: bold; text-align: center; margin-top: 2px; color: #ffffff;'>19h às 7h</div>"
+                                for p in prestadores_noite:
+                                    turno_atribuido = p.turno
+                                    bg_color = "#d4edda" if "1" in turno_atribuido else "#f8d7da"
+                                    cell_content += (
+                                        f"<div style='background-color: {bg_color}; padding: 1px; margin: 1px; border-radius: 2px; font-size: 10px; text-align: left; color: #000000;'>"
+                                        f"{p.nome} ({p.id})<br>{turno_atribuido}"
+                                        f"</div>"
+                                    )
                         else:
-                            cell_content += "<div style='color: #666; font-style: italic; text-align: center; font-size: 10px;'>Nenhum plantão</div>"
+                            cell_content += "<div style='color: #bbbbbb; font-style: italic; text-align: center; font-size: 10px;'>Nenhum plantão</div>"
                     except Exception as e:
                         cell_content += f"<div style='color: red; text-align: center; font-size: 10px;'>Erro: {str(e)}</div>"
                     cell_content += "</div>"
