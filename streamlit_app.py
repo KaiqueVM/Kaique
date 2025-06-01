@@ -314,7 +314,7 @@ def visualizacao_geral():
         for horario in horarios_por_linha:
             if horario:
                 st.markdown(
-                    f"<div style='border: 1px solid #bbb; padding: 2px; min-height: 30px; background-color: #e9ecef; text-align: center; font-size: 10px; display: flex; align-items: center; justify-content: center;'>"
+                    f"<div style='border: 1px solid #bbb; padding: 2px; min-height: 30px; background-color: #28a745; color: white; text-align: center; font-size: 10px; display: flex; align-items: center; justify-content: center;'>"
                     f"{horario}"
                     f"</div>",
                     unsafe_allow_html=True
@@ -379,7 +379,7 @@ def visualizacao_geral():
         for horario in horarios_por_linha_next:
             if horario:
                 st.markdown(
-                    f"<div style='border: 1px solid #bbb; padding: 2px; min-height: 30px; background-color: #e9ecef; text-align: center; font-size: 10px; display: flex; align-items: center; justify-content: center;'>"
+                    f"<div style='border: 1px solid #bbb; padding: 2px; min-height: 30px; background-color: #28a745; color: white; text-align: center; font-size: 10px; display: flex; align-items: center; justify-content: center;'>"
                     f"{horario}"
                     f"</div>",
                     unsafe_allow_html=True
