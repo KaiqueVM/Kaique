@@ -19,6 +19,7 @@ class Funcionario:
         self.turno = turno
         self.local = local
         self._senha_hash = None
+        self.folgas = []  # Lista de tuplas (data_inicio, data_fim)
 
     def set_senha(self, senha):
         self._senha_hash = hashlib.sha256(senha.encode()).hexdigest()
@@ -56,9 +57,13 @@ class Funcionario:
     def buscar_por_dia(cls, dia, mes, ano, last_day_parity=None):
         if "funcionarios_state" in st.session_state:
             cls._funcionarios = st.session_state["funcionarios_state"]
-        # Filtrar prestadores com turno definido e corresponder à paridade do dia
         prestadores = []
+        data_consulta = date(ano, mes, dia)
         for f in cls._funcionarios.values():
+            # Verificar se o prestador está em folga
+            em_folga = any(data_inicio <= data_consulta <= data_fim for data_inicio, data_fim in f.folgas)
+            if em_folga:
+                continue
             if f.turno:
                 if last_day_parity is None:  # Mês atual
                     if (f.turno == "Dia 1" and dia % 2 == 1) or (f.turno == "Dia 2" and dia % 2 == 0) or \
@@ -231,6 +236,7 @@ def gerenciar_prestadores():
                 st.write(f"Cargo: {prestador.cargo}")
                 st.write(f"Tipo de Vínculo: {prestador.tipo_vinculo}")
                 st.write(f"Data de Admissão: {prestador.data_admissao}")
+                st.write(f"Folgas: {', '.join([f'{inicio} a {fim}' for inicio, fim in prestador.folgas]) if prestador.folgas else 'Nenhuma'}")
 
                 with st.form(f"form_agendamento_{prestador.id}"):
                     turno = st.selectbox(
@@ -243,7 +249,11 @@ def gerenciar_prestadores():
                         ["UH", "UCCI"],
                         key=f"local_{prestador.id}"
                     )
+                    st.subheader("Registrar Folga")
+                    data_inicio_folga = st.date_input("Data de Início da Folga", key=f"folga_inicio_{prestador.id}")
+                    data_fim_folga = st.date_input("Data de Fim da Folga", key=f"folga_fim_{prestador.id}")
                     salvar_agendamento = st.form_submit_button("Salvar Agendamento")
+                    registrar_folga = st.form_submit_button("Registrar Folga")
                     excluir = st.form_submit_button("Excluir Prestador")
 
                     if salvar_agendamento:
@@ -255,6 +265,16 @@ def gerenciar_prestadores():
                         st.session_state["pagina"] = "menu"
                         st.rerun()
 
+                    if registrar_folga:
+                        if data_inicio_folga > data_fim_folga:
+                            st.error("A data de início da folga deve ser anterior ou igual à data de fim.")
+                        else:
+                            prestador.folgas.append((data_inicio_folga, data_fim_folga))
+                            prestador.save()
+                            st.success(f"Folga registrada para {data_inicio_folga} a {data_fim_folga} }!")
+                            time.sleep(1)
+                            st.rerun()
+
                     if excluir:
                         if prestador.id in Funcionario._funcionarios:
                             del Funcionario._funcionarios[prestador.id]
@@ -262,12 +282,82 @@ def gerenciar_prestadores():
                                 del st.session_state["funcionarios_state"][prestador.id]
                             st.success(f"Prestador {prestador.nome} excluído com sucesso!")
                             time.sleep(1)
-                            st.session_state["pagina"] = "menu"
                             st.rerun()
         except Exception as e:
             st.error(f"Erro ao buscar prestadores: {str(e)}")
 
-# Tela de visualizacao geral
+# Função para gerar LaTeX do calendário
+def generate_latex_calendar(prestadores_por_dia, mes, ano, mes_nome):
+    latex_content = f"""
+    \\documentclass[a4paper,10pt]{article}
+    \\usepackage{geometry}
+    \\usepackage{xcolor}
+    \\usepackage{booktabs}
+    \\usepackage{longtable}
+    \\usepackage[utf8]{inputenc}
+    \\usepackage[T1]{fontenc}
+    \\usepackage{nopto}
+    \\geometry{top=1cm, bottom=1cm, left=1cm, right=1cm}
+
+    \\definecolor{diurnal_blue}{rgb}{0.82, 0.90, 1.90}
+    \\definecolor{nocturnal_pink}{rgb}{1.0, 0.82, 0.86}
+    
+    \\begin{document}
+    
+    \\section*{Calendário de {mes_nome} {ano}}
+    
+    \\begin{longtable}{|p{2cm}|p{2cm}|p{2cm}|p{3cm}|p{2cm}|p{3cm}|p{2cm}|}
+    \\hline
+    \\textbf{Segunda} & \\textbf{Terça} & \\textbf{Quarta} & \\textbf{Quinta} & \\textbf{Sexta} & \\textbf{Sábado} & \\textbf{Domingo} \\\\ \\hline
+    \\endfirsthead
+    \\hline
+    \\textbf{Segunda} & \\textbf{Terça} & \\textbf{Quarta} & \\textbf{Quinta} & \\textbf{Sexta} & \\textbf{Sábado} & \\textbf{Domingo} \\\\ \\hline
+    \\endhead
+    
+    % Dados do calendário
+    """
+    
+    cal = calendar.monthcalendar(ano, mes)
+    for semana in cal:
+        dias = ["" for _ in range(7)]
+        for i, dia in enumerate(semana):
+            if dia != 0:
+                prestadores = prestadores_por_dia.get(dia, [])
+                cell_content = f"\\textbf{{Dia {dia}}}\\\\"
+                if prestadores:
+                    prestadores_dia = [p for p in prestadores if "Dia" in p.turno]
+                    prestadores_noite = [p for p in prestadores if "Noite" in p.turno]
+                    
+                    if prestadores_dia:
+                        cell_content += "\\scriptsize{7h às 19h}\\\\"
+                        for p in prestadores_dia:
+                            sigla = "AJ" if p.tipo_vinculo == "AJ - PROGRAMA ANJO" else "FT"
+                            cell_content += (
+                                f"\\colorbox{diurnal_blue}{{\\scriptsize {p.nome} ({p.coren}), {p.cargo}, {sigla}, {p.local}, {p.turno}}}\\\\"
+                            )
+                    
+                    if prestadores_noite:
+                        cell_content += "\\scriptsize{19h às 7h}\\\\"
+                        for p in prestadores_noite:
+                            sigla = "AJ" if p.tipo_vinculo == "AJ - PROGRAMA ANJO" else "FT"
+                            cell_content += (
+                                f"\\colorbox{nocturnal_pink}{{\\scriptsize {p.nome} ({p.coren}), {p.cargo}, {sigla}, {p.local}, {p.turno}}}\\\\"
+                            )
+                else:
+                    cell_content += "\\scriptsize{Nenhum plantão}\\\\"
+                dias[i] = cell_content
+            else:
+                dias[i] = ""
+        latex_content += " & ".join(dias) + " \\\\ \\hline\n"
+    
+    latex_content += """
+    \\end{longtable}
+    
+    \\end{document}
+    """
+    return latex_content
+
+# Tela de visualização geral
 def visualizacao_geral():
     st.header("Visualização Geral dos Plantões")
     
@@ -279,6 +369,19 @@ def visualizacao_geral():
     # Determinar o último dia do mês atual e sua paridade
     last_day = calendar.monthrange(ano, mes)[1]
     last_day_parity = last_day % 2 == 0  # True se par, False se ímpar
+
+    # Armazenar prestadores por dia para uso no PDF
+    prestadores_por_dia = {dia: Funcionario.buscar_por_dia(dia, mes, ano, None) for dia in range(1, last_day + 1)}
+    
+    # Botão para gerar PDF
+    if st.button("Imprimir Calendário (PDF)"):
+        latex_content = generate_latex_calendar(prestadores_por_dia, mes, ano, calendar.month_name[mes])
+        st.download_button(
+            label="Baixar PDF",
+            data=latex_content,
+            file_name=f"calendario_{calendar.month_name[mes]}_{ano}.tex",
+            mime="text/latex"
+        )
 
     # Grade do calendário
     st.markdown(f"### Calendário de {calendar.month_name[mes]} {ano}")
@@ -295,7 +398,7 @@ def visualizacao_geral():
                     st.markdown("<div style='border: 1px solid #bbb; padding: 2px; min-height: 30px; background-color: #343a40;'></div>", unsafe_allow_html=True)
                 else:
                     # Buscar prestadores agendados para o dia
-                    prestadores = Funcionario.buscar_por_dia(dia, mes, ano, last_day_parity)
+                    prestadores = prestadores_por_dia[dia]
                     cell_content = f"<div style='border: 1px solid #bbb; padding: 2px; min-height: 30px; background-color: #343a40;'>"
                     cell_content += f"<div style='font-weight: bold; text-align: center; font-size: 12px; color: #ffffff;'>{dia}</div>"
                     try:
@@ -309,11 +412,11 @@ def visualizacao_geral():
                                 cell_content += "<div style='font-size: 10px; font-weight: bold; text-align: center; margin-top: 2px; color: #ffffff;'>7h às 19h</div>"
                                 for p in prestadores_dia:
                                     turno_atribuido = p.turno
-                                    bg_color = "#d4edda" if "1" in turno_atribuido else "#f8d7da"
+                                    bg_color = "#d1e7ff"  # Azul para diurno
                                     sigla = "AJ" if p.tipo_vinculo == "AJ - PROGRAMA ANJO" else "FT"
                                     cell_content += (
                                         f"<div style='background-color: {bg_color}; padding: 1px; margin: 1px; border-radius: 2px; font-size: 10px; text-align: left; color: #000000;'>"
-                                        f"{p.nome} ({p.coren}) {sigla} {p.local}<br>{turno_atribuido}"
+                                        f"{p.nome} ({p.coren}), {p.cargo}, {sigla}, {p.local}<br>{turno_atribuido}"
                                         f"</div>"
                                     )
 
@@ -322,11 +425,11 @@ def visualizacao_geral():
                                 cell_content += "<div style='font-size: 10px; font-weight: bold; text-align: center; margin-top: 2px; color: #ffffff;'>19h às 7h</div>"
                                 for p in prestadores_noite:
                                     turno_atribuido = p.turno
-                                    bg_color = "#d4edda" if "1" in turno_atribuido else "#f8d7da"
+                                    bg_color = "#ffd1dc"  # Rosa para noturno
                                     sigla = "AJ" if p.tipo_vinculo == "AJ - PROGRAMA ANJO" else "FT"
                                     cell_content += (
                                         f"<div style='background-color: {bg_color}; padding: 1px; margin: 1px; border-radius: 2px; font-size: 10px; text-align: left; color: #000000;'>"
-                                        f"{p.nome} ({p.coren}) {sigla} {p.local}<br>{turno_atribuido}"
+                                        f"{p.nome} ({p.coren}), {p.cargo}, {sigla}, {p.local}<br>{turno_atribuido}"
                                         f"</div>"
                                     )
                         else:
@@ -341,6 +444,7 @@ def visualizacao_geral():
     next_month = mes + 1 if mes < 12 else 1
     next_year = ano + 1 if mes == 12 else ano
     next_cal = calendar.monthcalendar(next_year, next_month)
+    prestadores_por_dia_next = {dia: Funcionario.buscar_por_dia(dia, next_month, next_year, last_day_parity) for dia in range(1, calendar.monthrange(next_year, next_month)[1] + 1)}
 
     header_cols_next = st.columns(7)
     for i, dia_semana in enumerate(dias_da_semana):
@@ -354,7 +458,7 @@ def visualizacao_geral():
                 if dia == 0:
                     st.markdown("<div style='border: 1px solid #bbb; padding: 2px; min-height: 30px; background-color: #343a40;'></div>", unsafe_allow_html=True)
                 else:
-                    prestadores = Funcionario.buscar_por_dia(dia, next_month, next_year, last_day_parity)
+                    prestadores = prestadores_por_dia_next[dia]
                     cell_content = f"<div style='border: 1px solid #bbb; padding: 2px; min-height: 30px; background-color: #343a40;'>"
                     cell_content += f"<div style='font-weight: bold; text-align: center; font-size: 12px; color: #ffffff;'>{dia}</div>"
                     try:
@@ -368,11 +472,11 @@ def visualizacao_geral():
                                 cell_content += "<div style='font-size: 10px; font-weight: bold; text-align: center; margin-top: 2px; color: #ffffff;'>7h às 19h</div>"
                                 for p in prestadores_dia:
                                     turno_atribuido = p.turno
-                                    bg_color = "#d4edda" if "1" in turno_atribuido else "#f8d7da"
+                                    bg_color = "#d1e7ff"  # Azul para diurno
                                     sigla = "AJ" if p.tipo_vinculo == "AJ - PROGRAMA ANJO" else "FT"
                                     cell_content += (
                                         f"<div style='background-color: {bg_color}; padding: 1px; margin: 1px; border-radius: 2px; font-size: 10px; text-align: left; color: #000000;'>"
-                                        f"{p.nome} ({p.coren}) {sigla} {p.local}<br>{turno_atribuido}"
+                                        f"{p.nome} ({p.coren}), {p.cargo}, {sigla}, {p.local}<br>{turno_atribuido}"
                                         f"</div>"
                                     )
 
@@ -381,11 +485,11 @@ def visualizacao_geral():
                                 cell_content += "<div style='font-size: 10px; font-weight: bold; text-align: center; margin-top: 2px; color: #ffffff;'>19h às 7h</div>"
                                 for p in prestadores_noite:
                                     turno_atribuido = p.turno
-                                    bg_color = "#d4edda" if "1" in turno_atribuido else "#f8d7da"
+                                    bg_color = "#ffd1dc"  # Rosa para noturno
                                     sigla = "AJ" if p.tipo_vinculo == "AJ - PROGRAMA ANJO" else "FT"
                                     cell_content += (
                                         f"<div style='background-color: {bg_color}; padding: 1px; margin: 1px; border-radius: 2px; font-size: 10px; text-align: left; color: #000000;'>"
-                                        f"{p.nome} ({p.coren}) {sigla} {p.local}<br>{turno_atribuido}"
+                                        f"{p.nome} ({p.coren}), {p.cargo}, {sigla}, {p.local}<br>{turno_atribuido}"
                                         f"</div>"
                                     )
                         else:
