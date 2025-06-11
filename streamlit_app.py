@@ -309,7 +309,7 @@ def visualizacao_geral():
                                 cell_content += "<div style='font-size: 10px; font-weight: bold; text-align: center; margin-top: 2px; color: #ffffff;'>7h às 19h</div>"
                                 for p in prestadores_dia:
                                     turno_atribuido = p.turno
-                                    bg_color = "#d4edda" if "1" in turno_atribuido else "#f8d7da"
+                                    bg_color = "#d1e7ff"  # Azul para turno da manhã
                                     sigla = "AJ" if p.tipo_vinculo == "AJ - PROGRAMA ANJO" else "FT"
                                     cell_content += (
                                         f"<div style='background-color: {bg_color}; padding: 1px; margin: 1px; border-radius: 2px; font-size: 10px; text-align: left; color: #000000;'>"
@@ -322,7 +322,7 @@ def visualizacao_geral():
                                 cell_content += "<div style='font-size: 10px; font-weight: bold; text-align: center; margin-top: 2px; color: #ffffff;'>19h às 7h</div>"
                                 for p in prestadores_noite:
                                     turno_atribuido = p.turno
-                                    bg_color = "#d4edda" if "1" in turno_atribuido else "#f8d7da"
+                                    bg_color = "#ffd1dc"  # Rosa para turno da noite
                                     sigla = "AJ" if p.tipo_vinculo == "AJ - PROGRAMA ANJO" else "FT"
                                     cell_content += (
                                         f"<div style='background-color: {bg_color}; padding: 1px; margin: 1px; border-radius: 2px; font-size: 10px; text-align: left; color: #000000;'>"
@@ -344,7 +344,7 @@ def visualizacao_geral():
 
     header_cols_next = st.columns(7)
     for i, dia_semana in enumerate(dias_da_semana):
-        with header_cols_next[i]:
+        with header_cols[i]:
             st.markdown(f"<div style='text-align: center; font-weight: bold;'>{dia_semana}</div>", unsafe_allow_html=True)
 
     for semana in next_cal:
@@ -368,7 +368,7 @@ def visualizacao_geral():
                                 cell_content += "<div style='font-size: 10px; font-weight: bold; text-align: center; margin-top: 2px; color: #ffffff;'>7h às 19h</div>"
                                 for p in prestadores_dia:
                                     turno_atribuido = p.turno
-                                    bg_color = "#d4edda" if "1" in turno_atribuido else "#f8d7da"
+                                    bg_color = "#d1e7ff"  # Azul para turno da manhã
                                     sigla = "AJ" if p.tipo_vinculo == "AJ - PROGRAMA ANJO" else "FT"
                                     cell_content += (
                                         f"<div style='background-color: {bg_color}; padding: 1px; margin: 1px; border-radius: 2px; font-size: 10px; text-align: left; color: #000000;'>"
@@ -381,7 +381,7 @@ def visualizacao_geral():
                                 cell_content += "<div style='font-size: 10px; font-weight: bold; text-align: center; margin-top: 2px; color: #ffffff;'>19h às 7h</div>"
                                 for p in prestadores_noite:
                                     turno_atribuido = p.turno
-                                    bg_color = "#d4edda" if "1" in turno_atribuido else "#f8d7da"
+                                    bg_color = "#ffd1dc"  # Rosa para turno da noite
                                     sigla = "AJ" if p.tipo_vinculo == "AJ - PROGRAMA ANJO" else "FT"
                                     cell_content += (
                                         f"<div style='background-color: {bg_color}; padding: 1px; margin: 1px; border-radius: 2px; font-size: 10px; text-align: left; color: #000000;'>"
