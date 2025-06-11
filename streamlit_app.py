@@ -19,6 +19,7 @@ class Funcionario:
         self.turno = turno
         self.local = local
         self._senha_hash = None
+        self.folgas = []  # Lista de tuplas (data_inicio, data_fim)
 
     def set_senha(self, senha):
         self._senha_hash = hashlib.sha256(senha.encode()).hexdigest()
@@ -231,6 +232,7 @@ def gerenciar_prestadores():
                 st.write(f"Cargo: {prestador.cargo}")
                 st.write(f"Tipo de Vínculo: {prestador.tipo_vinculo}")
                 st.write(f"Data de Admissão: {prestador.data_admissao}")
+                st.write(f"Folgas: {', '.join([f'{inicio} a {fim}' for inicio, fim in prestador.folgas]) if prestador.folgas else 'Nenhuma'}")
 
                 with st.form(f"form_agendamento_{prestador.id}"):
                     turno = st.selectbox(
@@ -243,7 +245,11 @@ def gerenciar_prestadores():
                         ["UH", "UCCI"],
                         key=f"local_{prestador.id}"
                     )
+                    st.subheader("Registrar Folga")
+                    data_inicio_folga = st.date_input("Data de Início da Folga", key=f"folga_inicio_{prestador.id}")
+                    data_fim_folga = st.date_input("Data de Fim da Folga", key=f"folga_fim_{prestador.id}")
                     salvar_agendamento = st.form_submit_button("Salvar Agendamento")
+                    registrar_folga = st.form_submit_button("Registrar Folga")
                     excluir = st.form_submit_button("Excluir Prestador")
 
                     if salvar_agendamento:
@@ -254,6 +260,16 @@ def gerenciar_prestadores():
                         time.sleep(1)
                         st.session_state["pagina"] = "menu"
                         st.rerun()
+
+                    if registrar_folga:
+                        if data_inicio_folga > data_fim_folga:
+                            st.error("A data de início da folga deve ser anterior ou igual à data de fim.")
+                        else:
+                            prestador.folgas.append((data_inicio_folga, data_fim_folga))
+                            prestador.save()
+                            st.success(f"Folga registrada para {prestador.nome} de {data_inicio_folga} a {data_fim_folga}!")
+                            time.sleep(1)
+                            st.rerun()
 
                     if excluir:
                         if prestador.id in Funcionario._funcionarios:
@@ -313,7 +329,7 @@ def visualizacao_geral():
                                     sigla = "AJ" if p.tipo_vinculo == "AJ - PROGRAMA ANJO" else "FT"
                                     cell_content += (
                                         f"<div style='background-color: {bg_color}; padding: 1px; margin: 1px; border-radius: 2px; font-size: 10px; text-align: left; color: #000000;'>"
-                                        f"{p.nome} ({p.coren}) {sigla} {p.local}<br>{turno_atribuido}"
+                                        f"{p.nome} ({p.coren}), {p.cargo}, {sigla} {p.local}<br>{turno_atribuido}"
                                         f"</div>"
                                     )
 
@@ -326,7 +342,7 @@ def visualizacao_geral():
                                     sigla = "AJ" if p.tipo_vinculo == "AJ - PROGRAMA ANJO" else "FT"
                                     cell_content += (
                                         f"<div style='background-color: {bg_color}; padding: 1px; margin: 1px; border-radius: 2px; font-size: 10px; text-align: left; color: #000000;'>"
-                                        f"{p.nome} ({p.coren}) {sigla} {p.local}<br>{turno_atribuido}"
+                                        f"{p.nome} ({p.coren}), {p.cargo}, {sigla} {p.local}<br>{turno_atribuido}"
                                         f"</div>"
                                     )
                         else:
@@ -372,7 +388,7 @@ def visualizacao_geral():
                                     sigla = "AJ" if p.tipo_vinculo == "AJ - PROGRAMA ANJO" else "FT"
                                     cell_content += (
                                         f"<div style='background-color: {bg_color}; padding: 1px; margin: 1px; border-radius: 2px; font-size: 10px; text-align: left; color: #000000;'>"
-                                        f"{p.nome} ({p.coren}) {sigla} {p.local}<br>{turno_atribuido}"
+                                        f"{p.nome} ({p.coren}), {p.cargo}, {sigla} {p.local}<br>{turno_atribuido}"
                                         f"</div>"
                                     )
 
@@ -385,7 +401,7 @@ def visualizacao_geral():
                                     sigla = "AJ" if p.tipo_vinculo == "AJ - PROGRAMA ANJO" else "FT"
                                     cell_content += (
                                         f"<div style='background-color: {bg_color}; padding: 1px; margin: 1px; border-radius: 2px; font-size: 10px; text-align: left; color: #000000;'>"
-                                        f"{p.nome} ({p.coren}) {sigla} {p.local}<br>{turno_atribuido}"
+                                        f"{p.nome} ({p.coren}), {p.cargo}, {sigla} {p.local}<br>{turno_atribuido}"
                                         f"</div>"
                                     )
                         else:
@@ -438,6 +454,9 @@ def main():
     else:
         logout_button()
         main_menu()
+
+if __name__ == "__main__":
+    main()
 
 if __name__ == "__main__":
     main()
