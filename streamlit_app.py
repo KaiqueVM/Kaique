@@ -3,6 +3,7 @@ from datetime import date, datetime, timedelta
 import calendar
 import hashlib
 import time
+from streamlit_js_eval import streamlit_js_eval  # <-- 1. IMPORT ADICIONADO
 
 # Classe Funcionario embutida no mesmo arquivo
 class Funcionario:
@@ -267,7 +268,7 @@ def gerenciar_prestadores():
                         st.rerun()
 
                     if registrar_folga:
-                        if data_inicio_folga > data_fim_folga:
+                        if data_inicio_folga > data_fim_folга:
                             st.error("A data de início da folga deve ser anterior ou igual à data de fim.")
                         else:
                             prestador.folgas.append((data_inicio_folga, data_fim_folga))
@@ -292,16 +293,9 @@ def gerenciar_prestadores():
 def visualizacao_geral():
     st.header("Visualização Geral dos Plantões")
     
-    # Botão de impressão
+    # Botão de impressão CORRIGIDO
     if st.button("Imprimir Tabela"):
-        st.markdown(
-            """
-            <script>
-                window.print();
-            </script>
-            """,
-            unsafe_allow_html=True
-        )
+        streamlit_js_eval(js_expressions="window.print()") # <-- 2. BOTÃO CORRIGIDO
 
     hoje = datetime.today()
     ano, mes = hoje.year, hoje.month
