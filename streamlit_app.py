@@ -324,10 +324,11 @@ def visualizacao_geral():
                             # Separar prestadores por turno (Dia e Noite) e verificar folgas
                             prestadores_dia = sorted([p for p in prestadores if "Dia" in p.turno and not any(date(ano, mes, dia) <= data_fim and date(ano, mes, dia) >= data_inicio for data_inicio, data_fim in p.folgas)], key=lambda x: x.nome)
                             prestadores_noite = sorted([p for p in prestadores if "Noite" in p.turno and not any(date(ano, mes, dia) <= data_fim and date(ano, mes, dia) >= data_inicio for data_inicio, data_fim in p.folgas)], key=lambda x: x.nome)
-                            prestadores_folga = sorted([p for p in prestadores if any(date(ano, mes, dia) <= data_fim and date(ano, mes, dia) >= data_inicio for data_inicio, data_fim in p.folgas)], key=lambda x: x.nome)
+                            folgas_dia = sorted([p for p in prestadores if "Dia" in p.turno and any(date(ano, mes, dia) <= data_fim and date(ano, mes, dia) >= data_inicio for data_inicio, data_fim in p.folgas)], key=lambda x: x.nome)
+                            folgas_noite = sorted([p for p in prestadores if "Noite" in p.turno and any(date(ano, mes, dia) <= data_fim and date(ano, mes, dia) >= data_inicio for data_inicio, data_fim in p.folgas)], key=lambda x: x.nome)
 
                             # Seção para o turno do dia (7h às 19h)
-                            if prestadores_dia or prestadores_folga:
+                            if prestadores_dia or folgas_dia:
                                 cell_content += "<div style='font-size: 10px; font-weight: bold; text-align: center; margin-top: 2px; color: #ffffff;'>7h às 19h</div>"
                                 for p in prestadores_dia:
                                     bg_color = "#d1e7ff"  # Azul para turno da manhã
@@ -337,7 +338,7 @@ def visualizacao_geral():
                                         f"{p.nome} ({p.coren}), {p.cargo}, {sigla} {p.local}<br>{p.turno}"
                                         f"</div>"
                                     )
-                                for p in prestadores_folga:
+                                for p in folgas_dia:
                                     bg_color = "#cccccc"  # Cinza para folga
                                     cell_content += (
                                         f"<div style='background-color: {bg_color}; padding: 1px; margin: 1px; border-radius: 2px; font-size: 10px; text-align: left; color: #000000;'>"
@@ -346,7 +347,7 @@ def visualizacao_geral():
                                     )
 
                             # Seção para o turno da noite (19h às 7h)
-                            if prestadores_noite:
+                            if prestadores_noite or folgas_noite:
                                 cell_content += "<div style='font-size: 10px; font-weight: bold; text-align: center; margin-top: 2px; color: #ffffff;'>19h às 7h</div>"
                                 for p in prestadores_noite:
                                     bg_color = "#ffd1dc"  # Rosa para turno da noite
@@ -354,6 +355,13 @@ def visualizacao_geral():
                                     cell_content += (
                                         f"<div style='background-color: {bg_color}; padding: 1px; margin: 1px; border-radius: 2px; font-size: 10px; text-align: left; color: #000000;'>"
                                         f"{p.nome} ({p.coren}), {p.cargo}, {sigla} {p.local}<br>{p.turno}"
+                                        f"</div>"
+                                    )
+                                for p in folgas_noite:
+                                    bg_color = "#cccccc"  # Cinza para folga
+                                    cell_content += (
+                                        f"<div style='background-color: {bg_color}; padding: 1px; margin: 1px; border-radius: 2px; font-size: 10px; text-align: left; color: #000000;'>"
+                                        f"{p.nome} ({p.coren}), {p.cargo} (Folga)"
                                         f"</div>"
                                     )
                         else:
@@ -389,10 +397,11 @@ def visualizacao_geral():
                             # Separar prestadores por turno (Dia e Noite) e verificar folgas
                             prestadores_dia = sorted([p for p in prestadores if "Dia" in p.turno and not any(date(next_year, next_month, dia) <= data_fim and date(next_year, next_month, dia) >= data_inicio for data_inicio, data_fim in p.folgas)], key=lambda x: x.nome)
                             prestadores_noite = sorted([p for p in prestadores if "Noite" in p.turno and not any(date(next_year, next_month, dia) <= data_fim and date(next_year, next_month, dia) >= data_inicio for data_inicio, data_fim in p.folgas)], key=lambda x: x.nome)
-                            prestadores_folga = sorted([p for p in prestadores if any(date(next_year, next_month, dia) <= data_fim and date(next_year, next_month, dia) >= data_inicio for data_inicio, data_fim in p.folgas)], key=lambda x: x.nome)
+                            folgas_dia = sorted([p for p in prestadores if "Dia" in p.turno and any(date(next_year, next_month, dia) <= data_fim and date(next_year, next_month, dia) >= data_inicio for data_inicio, data_fim in p.folgas)], key=lambda x: x.nome)
+                            folgas_noite = sorted([p for p in prestadores if "Noite" in p.turno and any(date(next_year, next_month, dia) <= data_fim and date(next_year, next_month, dia) >= data_inicio for data_inicio, data_fim in p.folgas)], key=lambda x: x.nome)
 
                             # Seção para o turno do dia (7h às 19h)
-                            if prestadores_dia or prestadores_folga:
+                            if prestadores_dia or folgas_dia:
                                 cell_content += "<div style='font-size: 10px; font-weight: bold; text-align: center; margin-top: 2px; color: #ffffff;'>7h às 19h</div>"
                                 for p in prestadores_dia:
                                     bg_color = "#d1e7ff"  # Azul para turno da manhã
@@ -402,7 +411,7 @@ def visualizacao_geral():
                                         f"{p.nome} ({p.coren}), {p.cargo}, {sigla} {p.local}<br>{p.turno}"
                                         f"</div>"
                                     )
-                                for p in prestadores_folga:
+                                for p in folgas_dia:
                                     bg_color = "#cccccc"  # Cinza para folga
                                     cell_content += (
                                         f"<div style='background-color: {bg_color}; padding: 1px; margin: 1px; border-radius: 2px; font-size: 10px; text-align: left; color: #000000;'>"
@@ -411,7 +420,7 @@ def visualizacao_geral():
                                     )
 
                             # Seção para o turno da noite (19h às 7h)
-                            if prestadores_noite:
+                            if prestadores_noite or folgas_noite:
                                 cell_content += "<div style='font-size: 10px; font-weight: bold; text-align: center; margin-top: 2px; color: #ffffff;'>19h às 7h</div>"
                                 for p in prestadores_noite:
                                     bg_color = "#ffd1dc"  # Rosa para turno da noite
@@ -419,6 +428,13 @@ def visualizacao_geral():
                                     cell_content += (
                                         f"<div style='background-color: {bg_color}; padding: 1px; margin: 1px; border-radius: 2px; font-size: 10px; text-align: left; color: #000000;'>"
                                         f"{p.nome} ({p.coren}), {p.cargo}, {sigla} {p.local}<br>{p.turno}"
+                                        f"</div>"
+                                    )
+                                for p in folgas_noite:
+                                    bg_color = "#cccccc"  # Cinza para folga
+                                    cell_content += (
+                                        f"<div style='background-color: {bg_color}; padding: 1px; margin: 1px; border-radius: 2px; font-size: 10px; text-align: left; color: #000000;'>"
+                                        f"{p.nome} ({p.coren}), {p.cargo} (Folga)"
                                         f"</div>"
                                     )
                         else:
