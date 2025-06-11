@@ -322,17 +322,14 @@ def visualizacao_geral():
                     try:
                         if prestadores:
                             # Separar prestadores por turno (Dia e Noite) e verificar folgas
-                            for p in prestadores:
-                                data_consulta = date(ano, mes, dia)
-                                em_folga = any(data_inicio <= data_consulta <= data_fim for data_inicio, data_fim in p.folgas)
-                                if em_folga:
-                                    bg_color = "#cccccc"  # Cinza para folga
-                                    cell_content += (
-                                        f"<div style='background-color: {bg_color}; padding: 1px; margin: 1px; border-radius: 2px; font-size: 10px; text-align: left; color: #000000;'>"
-                                        f"{p.nome} ({p.coren}), {p.cargo} (Folga)"
-                                        f"</div>"
-                                    )
-                                elif "Dia" in p.turno:
+                            prestadores_dia = [p for p in prestadores if "Dia" in p.turno and not any(date(ano, mes, dia) <= data_fim and date(ano, mes, dia) >= data_inicio for data_inicio, data_fim in p.folgas)]
+                            prestadores_noite = [p for p in prestadores if "Noite" in p.turno and not any(date(ano, mes, dia) <= data_fim and date(ano, mes, dia) >= data_inicio for data_inicio, data_fim in p.folgas)]
+                            prestadores_folga = [p for p in prestadores if any(date(ano, mes, dia) <= data_fim and date(ano, mes, dia) >= data_inicio for data_inicio, data_fim in p.folgas)]
+
+                            # Seção para o turno do dia (7h às 19h)
+                            if prestadores_dia or prestadores_folga:
+                                cell_content += "<div style='font-size: 10px; font-weight: bold; text-align: center; margin-top: 2px; color: #ffffff;'>7h às 19h</div>"
+                                for p in prestadores_dia:
                                     bg_color = "#d1e7ff"  # Azul para turno da manhã
                                     sigla = "AJ" if p.tipo_vinculo == "AJ - PROGRAMA ANJO" else "FT"
                                     cell_content += (
@@ -340,7 +337,18 @@ def visualizacao_geral():
                                         f"{p.nome} ({p.coren}), {p.cargo}, {sigla} {p.local}<br>{p.turno}"
                                         f"</div>"
                                     )
-                                elif "Noite" in p.turno:
+                                for p in prestadores_folga:
+                                    bg_color = "#cccccc"  # Cinza para folga
+                                    cell_content += (
+                                        f"<div style='background-color: {bg_color}; padding: 1px; margin: 1px; border-radius: 2px; font-size: 10px; text-align: left; color: #000000;'>"
+                                        f"{p.nome} ({p.coren}), {p.cargo} (Folga)"
+                                        f"</div>"
+                                    )
+
+                            # Seção para o turno da noite (19h às 7h)
+                            if prestadores_noite:
+                                cell_content += "<div style='font-size: 10px; font-weight: bold; text-align: center; margin-top: 2px; color: #ffffff;'>19h às 7h</div>"
+                                for p in prestadores_noite:
                                     bg_color = "#ffd1dc"  # Rosa para turno da noite
                                     sigla = "AJ" if p.tipo_vinculo == "AJ - PROGRAMA ANJO" else "FT"
                                     cell_content += (
@@ -379,17 +387,14 @@ def visualizacao_geral():
                     try:
                         if prestadores:
                             # Separar prestadores por turno (Dia e Noite) e verificar folgas
-                            for p in prestadores:
-                                data_consulta = date(next_year, next_month, dia)
-                                em_folga = any(data_inicio <= data_consulta <= data_fim for data_inicio, data_fim in p.folgas)
-                                if em_folga:
-                                    bg_color = "#cccccc"  # Cinza para folga
-                                    cell_content += (
-                                        f"<div style='background-color: {bg_color}; padding: 1px; margin: 1px; border-radius: 2px; font-size: 10px; text-align: left; color: #000000;'>"
-                                        f"{p.nome} ({p.coren}), {p.cargo} (Folga)"
-                                        f"</div>"
-                                    )
-                                elif "Dia" in p.turno:
+                            prestadores_dia = [p for p in prestadores if "Dia" in p.turno and not any(date(next_year, next_month, dia) <= data_fim and date(next_year, next_month, dia) >= data_inicio for data_inicio, data_fim in p.folgas)]
+                            prestadores_noite = [p for p in prestadores if "Noite" in p.turno and not any(date(next_year, next_month, dia) <= data_fim and date(next_year, next_month, dia) >= data_inicio for data_inicio, data_fim in p.folgas)]
+                            prestadores_folga = [p for p in prestadores if any(date(next_year, next_month, dia) <= data_fim and date(next_year, next_month, dia) >= data_inicio for data_inicio, data_fim in p.folgas)]
+
+                            # Seção para o turno do dia (7h às 19h)
+                            if prestadores_dia or prestadores_folga:
+                                cell_content += "<div style='font-size: 10px; font-weight: bold; text-align: center; margin-top: 2px; color: #ffffff;'>7h às 19h</div>"
+                                for p in prestadores_dia:
                                     bg_color = "#d1e7ff"  # Azul para turno da manhã
                                     sigla = "AJ" if p.tipo_vinculo == "AJ - PROGRAMA ANJO" else "FT"
                                     cell_content += (
@@ -397,7 +402,18 @@ def visualizacao_geral():
                                         f"{p.nome} ({p.coren}), {p.cargo}, {sigla} {p.local}<br>{p.turno}"
                                         f"</div>"
                                     )
-                                elif "Noite" in p.turno:
+                                for p in prestadores_folga:
+                                    bg_color = "#cccccc"  # Cinza para folga
+                                    cell_content += (
+                                        f"<div style='background-color: {bg_color}; padding: 1px; margin: 1px; border-radius: 2px; font-size: 10px; text-align: left; color: #000000;'>"
+                                        f"{p.nome} ({p.coren}), {p.cargo} (Folga)"
+                                        f"</div>"
+                                    )
+
+                            # Seção para o turno da noite (19h às 7h)
+                            if prestadores_noite:
+                                cell_content += "<div style='font-size: 10px; font-weight: bold; text-align: center; margin-top: 2px; color: #ffffff;'>19h às 7h</div>"
+                                for p in prestadores_noite:
                                     bg_color = "#ffd1dc"  # Rosa para turno da noite
                                     sigla = "AJ" if p.tipo_vinculo == "AJ - PROGRAMA ANJO" else "FT"
                                     cell_content += (
