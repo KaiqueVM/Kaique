@@ -292,6 +292,17 @@ def gerenciar_prestadores():
 def visualizacao_geral():
     st.header("Visualização Geral dos Plantões")
     
+    # Botão de impressão
+    if st.button("Imprimir Tabela"):
+        st.markdown(
+            """
+            <script>
+                window.print();
+            </script>
+            """,
+            unsafe_allow_html=True
+        )
+
     hoje = datetime.today()
     ano, mes = hoje.year, hoje.month
     cal = calendar.monthcalendar(ano, mes)
