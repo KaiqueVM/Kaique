@@ -6,7 +6,6 @@ import time
 from streamlit_js_eval import streamlit_js_eval
 
 # --- CLASSE FUNCIONARIO E DEMAIS FUNÇÕES (SEM ALTERAÇÃO) ---
-# (O código anterior para Funcionario, login, etc., permanece o mesmo)
 class Funcionario:
     _funcionarios = {}
     def __init__(self, id, nome, coren, cargo, tipo_vinculo, data_admissao, gerente=False, turno=None, local=None):
@@ -44,7 +43,10 @@ def init_session():
     hoje = date.today()
     for f in list(Funcionario._funcionarios.values()):
         if f.tipo_vinculo == "AJ - PROGRAMA ANJO" and (hoje - f.data_admissao).days >= 7:
-            f.tipo_vinculo, f.save() = "FT - EFETIVADO"
+            # --- LINHA CORRIGIDA AQUI ---
+            f.tipo_vinculo = "FT - EFETIVADO"
+            f.save()
+            # --------------------------
 
 def login_screen():
     st.title("Pequeno Cotolengo - Login")
@@ -53,7 +55,7 @@ def login_screen():
         if st.form_submit_button("Entrar"):
             if not Funcionario.get_funcionario_por_id("56.127"):
                 gerente = Funcionario("56.127", "Gerente Padrão", "56.127", "gerente", "FT - EFETIVADO", date.today(), True)
-                gerente.set_senha("147258"), gerente.save()
+                gerente.set_senha("147258"); gerente.save()
             f = Funcionario.get_funcionario_por_id(coren)
             if f and f.checa_senha(senha) and f.cargo.lower() in ["gerente", "supervisor"]:
                 st.session_state.autenticado, st.session_state.usuario = True, {"id": f.id, "nome": f.nome, "gerente": f.gerente}
@@ -62,43 +64,71 @@ def login_screen():
 
 def adicionar_supervisor():
     st.header("Adicionar Novo Supervisor")
-    # ... (código mantido) ...
+    with st.form("form_adicionar_supervisor"):
+        coren = st.text_input("COREN do Supervisor")
+        nome = st.text_input("Nome do Supervisor")
+        senha = st.text_input("Senha", type="password")
+        if st.form_submit_button("Salvar Supervisor"):
+            if not all([coren, nome, senha]):
+                st.warning("Preencha todos os campos.")
+            elif Funcionario.get_funcionario_por_id(coren):
+                st.error("Já existe um supervisor com esse COREN.")
+            else:
+                novo = Funcionario(coren, nome, coren, "supervisor", "FT - EFETIVADO", date.today(), False)
+                novo.set_senha(senha)
+                novo.save()
+                st.success("Supervisor cadastrado!")
+                time.sleep(1)
+                st.rerun()
 
 def adicionar_prestador():
     st.header("Adicionar Novo Prestador de Serviço")
-    # ... (código mantido) ...
-    
+    with st.form("form_adicionar_prestador"):
+        nome = st.text_input("Nome completo")
+        mat = st.text_input("Matrícula (MAT)")
+        coren = st.text_input("COREN")
+        cargo = st.text_input("Cargo")
+        data_admissao = st.date_input("Data de admissão", date.today())
+        tipo_vinculo = st.selectbox("Tipo de vínculo", ["AJ - PROGRAMA ANJO", "FT - EFETIVADO"])
+        if st.form_submit_button("Salvar"):
+            if not all([nome, mat, coren, cargo]):
+                st.warning("Preencha todos os campos.")
+            elif Funcionario.get_funcionario_por_id(mat):
+                st.error("Já existe um prestador com essa matrícula.")
+            else:
+                novo = Funcionario(mat, nome, coren, cargo, tipo_vinculo, data_admissao, False)
+                novo.save()
+                st.success("Prestador cadastrado!")
+                time.sleep(1)
+                st.rerun()
+
 def gerenciar_prestadores():
     st.header("Gerenciar Pessoas Já Cadastradas")
-    # ... (código mantido) ...
+    nome_busca = st.text_input("Digite o nome para buscar")
+    if nome_busca:
+        prestadores = Funcionario.buscar_por_nome(nome_busca)
+        if not prestadores: st.warning("Nenhum prestador encontrado.")
+        for p in prestadores:
+            st.subheader(f"Editando: {p.nome}")
+            with st.expander("Ver/Editar Detalhes", expanded=True):
+                with st.form(f"form_{p.id}"):
+                    p.nome = st.text_input("Nome", p.nome, key=f"nome_{p.id}")
+                    # Adicione outros campos para edição se necessário
+                    st.form_submit_button("Salvar Alterações")
+                # Lógica de turno, folga, etc. pode ser adicionada aqui
+                st.write(f"Turno atual: {p.turno or 'Não definido'}")
 
-# --- NOVA FUNÇÃO DE VISUALIZAÇÃO GERAL À PROVA DE FALHAS ---
+
 def visualizacao_geral():
     st.header("Visualização Geral dos Plantões")
 
-    # CSS para alternar a visibilidade entre tela e impressão
     print_css = """
     <style>
-        /* Por padrão, a visão de impressão fica oculta */
-        #print-view {
-            display: none;
-        }
-
+        #print-view { display: none; }
         @media print {
-            /* Regras aplicadas APENAS na impressão */
-            body * {
-                visibility: hidden; /* Esconde tudo */
-            }
-            #print-view, #print-view * {
-                visibility: visible; /* Mostra APENAS a visão de impressão e seus filhos */
-            }
-            #print-view {
-                position: absolute;
-                left: 0;
-                top: 0;
-                width: 100%;
-            }
-            /* Força a impressão de cores de fundo - A Regra mais importante */
+            body * { visibility: hidden; }
+            #print-view, #print-view * { visibility: visible; }
+            #print-view { position: absolute; left: 0; top: 0; width: 100%; }
             -webkit-print-color-adjust: exact !important;
             print-color-adjust: exact !important;
         }
@@ -112,10 +142,7 @@ def visualizacao_geral():
     hoje = datetime.today()
     ano, mes = hoje.year, hoje.month
 
-    # --- FUNÇÃO INTERNA PARA GERAR O HTML DO CALENDÁRIO ---
-    # Isso evita duplicação de código
-    def gerar_html_calendario(is_for_print=False):
-        # Estilos inline são mais garantidos para impressão
+    def gerar_html_calendario():
         style_header = "background-color:#343a40 !important; color:white !important; text-align:center; padding:5px; border:1px solid #bbb;"
         style_cell = "vertical-align:top; height:160px; border:1px solid #bbb; padding:4px;"
         style_day_number = "font-weight:bold; text-align:right; font-size:16px; color:#333 !important;"
@@ -139,13 +166,11 @@ def visualizacao_geral():
                     data_atual = date(ano, mes, dia)
                     prestadores = Funcionario.buscar_por_dia(dia, mes, ano)
                     
-                    # Lógica de turnos e folgas
                     is_dia_par = dia % 2 == 0
                     em_folga_ids = {p.id for p in prestadores if any(f[0] <= data_atual <= f[1] for f in p.folgas)}
-                    plantao_dia_ids = {p.id for p in prestadores if (p.turno == "Dia 1" and not is_dia_par) or (p.turno == "Dia 2" and is_dia_par)} - em_folga_ids
-                    plantao_noite_ids = {p.id for p in prestadores if (p.turno == "Noite 1" and not is_dia_par) or (p.turno == "Noite 2" and is_dia_par)} - em_folga_ids
+                    plantao_dia_ids = {p.id for p in prestadores if ((p.turno == "Dia 1" and not is_dia_par) or (p.turno == "Dia 2" and is_dia_par))} - em_folga_ids
+                    plantao_noite_ids = {p.id for p in prestadores if ((p.turno == "Noite 1" and not is_dia_par) or (p.turno == "Noite 2" and is_dia_par))} - em_folga_ids
 
-                    # Seções
                     if plantao_dia_ids:
                         html += f"<div style='{style_turno_header}'>☀️ DIA</div>"
                         for p_id in sorted(list(plantao_dia_ids)):
@@ -170,20 +195,17 @@ def visualizacao_geral():
         html += "</tbody></table>"
         return html
 
-    # --- Renderização das duas versões ---
-    
-    # 1. Versão de TELA (visível por padrão)
-    st.markdown(f"<div id='screen-view'>{gerar_html_calendario(is_for_print=False)}</div>", unsafe_allow_html=True)
-    
-    # 2. Versão de IMPRESSÃO (oculta por padrão, visível ao imprimir)
-    st.markdown(f"<div id='print-view'>{gerar_html_calendario(is_for_print=True)}</div>", unsafe_allow_html=True)
+    html_gerado = gerar_html_calendario()
+    st.markdown(f"<div id='screen-view'>{html_gerado}</div>", unsafe_allow_html=True)
+    st.markdown(f"<div id='print-view'>{html_gerado}</div>", unsafe_allow_html=True)
 
-# --- FUNÇÕES PRINCIPAIS (SEM ALTERAÇÃO) ---
 def main_menu():
     st.sidebar.title(f"Bem-vindo(a), {st.session_state['usuario']['nome']}")
-    opcoes = ["Visualização geral", "Gerenciar prestadores", "Adicionar novo prestador"]
+    opcoes_base = ["Visualização geral", "Gerenciar prestadores", "Adicionar novo prestador"]
     if st.session_state["usuario"].get("gerente"):
-        opcoes.append("Adicionar Novo Supervisor")
+        opcoes = opcoes_base + ["Adicionar Novo Supervisor"]
+    else:
+        opcoes = opcoes_base
     
     pagina = st.sidebar.radio("Selecione uma opção:", opcoes)
 
@@ -202,7 +224,8 @@ def main():
     if not st.session_state.get("autenticado"):
         login_screen()
     else:
-        logout_button(), main_menu()
+        logout_button()
+        main_menu()
 
 if __name__ == "__main__":
     main()
