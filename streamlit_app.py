@@ -309,9 +309,9 @@ def visualizacao_geral():
     )
     
     if st.button("Imprimir Tabela"):
-        # Adiciona um atraso pequeno para garantir que o conteúdo esteja carregado
+        # Adiciona um atraso maior para garantir que o conteúdo esteja carregado
         streamlit_js_eval(
-            js_expressions="setTimeout(() => window.print(), 500)",
+            js_expressions="setTimeout(() => window.print(), 1000)",
             key="print_trigger"
         )
 
