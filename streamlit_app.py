@@ -3,7 +3,7 @@ from datetime import date, datetime, timedelta
 import calendar
 import hashlib
 import time
-from streamlit_js_eval import streamlit_js_eval  # <-- 1. IMPORT ADICIONADO
+from streamlit_js_eval import streamlit_js_eval
 
 # Classe Funcionario embutida no mesmo arquivo
 class Funcionario:
@@ -58,28 +58,27 @@ class Funcionario:
     def buscar_por_dia(cls, dia, mes, ano, last_day_parity=None):
         if "funcionarios_state" in st.session_state:
             cls._funcionarios = st.session_state["funcionarios_state"]
-        # Incluir todos os prestadores e verificar folgas
         prestadores = []
         data_consulta = date(ano, mes, dia)
         for f in cls._funcionarios.values():
             if f.turno:
                 em_folga = any(data_inicio <= data_consulta <= data_fim for data_inicio, data_fim in f.folgas)
                 if not em_folga:
-                    if last_day_parity is None:  # Mês atual
+                    if last_day_parity is None:
                         if (f.turno == "Dia 1" and dia % 2 == 1) or (f.turno == "Dia 2" and dia % 2 == 0) or \
                            (f.turno == "Noite 1" and dia % 2 == 1) or (f.turno == "Noite 2" and dia % 2 == 0):
                             prestadores.append(f)
-                    else:  # Próximo mês
-                        if last_day_parity:  # Último dia par
+                    else:
+                        if last_day_parity:
                             if (f.turno == "Dia 2" and dia % 2 == 1) or (f.turno == "Dia 1" and dia % 2 == 0) or \
                                (f.turno == "Noite 2" and dia % 2 == 1) or (f.turno == "Noite 1" and dia % 2 == 0):
                                 prestadores.append(f)
-                        else:  # Último dia ímpar
+                        else:
                             if (f.turno == "Dia 1" and dia % 2 == 1) or (f.turno == "Dia 2" and dia % 2 == 0) or \
                                (f.turno == "Noite 1" and dia % 2 == 1) or (f.turno == "Noite 2" and dia % 2 == 0):
                                 prestadores.append(f)
                 else:
-                    prestadores.append(f)  # Incluir prestadores em folga
+                    prestadores.append(f)
             if not f.local:
                 f.local = "UH"
         return prestadores
@@ -95,7 +94,6 @@ def init_session():
     
     Funcionario._funcionarios = st.session_state["funcionarios_state"]
     
-    # Atualizar automaticamente AJ para FT após 7 dias
     hoje = date.today()
     for funcionario in Funcionario._funcionarios.values():
         if funcionario.tipo_vinculo == "AJ - PROGRAMA ANJO":
@@ -268,7 +266,7 @@ def gerenciar_prestadores():
                         st.rerun()
 
                     if registrar_folga:
-                        if data_inicio_folga > data_fim_folга:
+                        if data_inicio_folga > data_fim_folga:
                             st.error("A data de início da folga deve ser anterior ou igual à data de fim.")
                         else:
                             prestador.folgas.append((data_inicio_folga, data_fim_folga))
@@ -293,9 +291,29 @@ def gerenciar_prestadores():
 def visualizacao_geral():
     st.header("Visualização Geral dos Plantões")
     
-    # Botão de impressão CORRIGIDO
+    # Botão de impressão com CSS para impressão
+    st.markdown(
+        """
+        <style>
+            @media print {
+                body * { visibility: hidden; }
+                #main-content, #main-content * { visibility: visible; }
+                #main-content { position: absolute; left: 0; top: 0; width: 100%; }
+                .stApp { background: white !important; }
+                .stMarkdown { font-size: 12px !important; }
+                div[role="columnheader"] { font-weight: bold !important; }
+            }
+        </style>
+        """,
+        unsafe_allow_html=True
+    )
+    
     if st.button("Imprimir Tabela"):
-        streamlit_js_eval(js_expressions="window.print()") # <-- 2. BOTÃO CORRIGIDO
+        # Adiciona um atraso pequeno para garantir que o conteúdo esteja carregado
+        streamlit_js_eval(
+            js_expressions="setTimeout(() => window.print(), 500)",
+            key="print_trigger"
+        )
 
     hoje = datetime.today()
     ano, mes = hoje.year, hoje.month
@@ -304,7 +322,7 @@ def visualizacao_geral():
 
     # Determinar o último dia do mês atual e sua paridade
     last_day = calendar.monthrange(ano, mes)[1]
-    last_day_parity = last_day % 2 == 0  # True se par, False se ímpar
+    last_day_parity = last_day % 2 == 0
 
     # Grade do calendário
     st.markdown(f"### Calendário de {calendar.month_name[mes]} {ano}")
@@ -320,53 +338,49 @@ def visualizacao_geral():
                 if dia == 0:
                     st.markdown("<div style='border: 1px solid #bbb; padding: 2px; min-height: 30px; background-color: #343a40;'></div>", unsafe_allow_html=True)
                 else:
-                    # Buscar prestadores agendados para o dia
                     prestadores = Funcionario.buscar_por_dia(dia, mes, ano, last_day_parity)
                     cell_content = f"<div style='border: 1px solid #bbb; padding: 2px; min-height: 30px; background-color: #343a40;'>"
                     cell_content += f"<div style='font-weight: bold; text-align: center; font-size: 12px; color: #ffffff;'>{dia}</div>"
                     try:
                         if prestadores:
-                            # Separar prestadores por turno (Dia e Noite) e verificar folgas
                             prestadores_dia = sorted([p for p in prestadores if "Dia" in p.turno and not any(date(ano, mes, dia) <= data_fim and date(ano, mes, dia) >= data_inicio for data_inicio, data_fim in p.folgas)], key=lambda x: x.nome)
                             prestadores_noite = sorted([p for p in prestadores if "Noite" in p.turno and not any(date(ano, mes, dia) <= data_fim and date(ano, mes, dia) >= data_inicio for data_inicio, data_fim in p.folgas)], key=lambda x: x.nome)
                             folgas_dia = sorted([p for p in prestadores if "Dia" in p.turno and any(date(ano, mes, dia) <= data_fim and date(ano, mes, dia) >= data_inicio for data_inicio, data_fim in p.folgas)], key=lambda x: x.nome)
                             folgas_noite = sorted([p for p in prestadores if "Noite" in p.turno and any(date(ano, mes, dia) <= data_fim and date(ano, mes, dia) >= data_inicio for data_inicio, data_fim in p.folgas)], key=lambda x: x.nome)
 
-                            # Seção para o turno do dia (7h às 19h)
                             if prestadores_dia or folgas_dia:
                                 cell_content += "<div style='font-size: 10px; font-weight: bold; text-align: center; margin-top: 2px; color: #ffffff;'>7h às 19h</div>"
                                 for p in prestadores_dia:
-                                    bg_color = "#d1e7ff"  # Azul para turno da manhã
+                                    bg_color = "#d1e7ff"
                                     sigla = "AJ" if p.tipo_vinculo == "AJ - PROGRAMA ANJO" else "FT"
                                     cell_content += (
                                         f"<div style='background-color: {bg_color}; padding: 1px; margin: 1px; border-radius: 2px; font-size: 10px; text-align: left; color: #000000;'>"
-                                        f"{p.nome} ({p.coren}), {p.cargo}, {sigla} {p.local}<br>{p.turno}"
+                                        f"{p.nome} ({sigla} {p.local})"
                                         f"</div>"
                                     )
                                 for p in folgas_dia:
-                                    bg_color = "#cccccc"  # Cinza para folga
+                                    bg_color = "#cccccc"
                                     cell_content += (
                                         f"<div style='background-color: {bg_color}; padding: 1px; margin: 1px; border-radius: 2px; font-size: 10px; text-align: left; color: #000000;'>"
-                                        f"{p.nome} ({p.coren}), {p.cargo} (Folga)"
+                                        f"{p.nome} (Folga)"
                                         f"</div>"
                                     )
 
-                            # Seção para o turno da noite (19h às 7h)
                             if prestadores_noite or folgas_noite:
                                 cell_content += "<div style='font-size: 10px; font-weight: bold; text-align: center; margin-top: 2px; color: #ffffff;'>19h às 7h</div>"
                                 for p in prestadores_noite:
-                                    bg_color = "#ffd1dc"  # Rosa para turno da noite
+                                    bg_color = "#ffd1dc"
                                     sigla = "AJ" if p.tipo_vinculo == "AJ - PROGRAMA ANJO" else "FT"
                                     cell_content += (
                                         f"<div style='background-color: {bg_color}; padding: 1px; margin: 1px; border-radius: 2px; font-size: 10px; text-align: left; color: #000000;'>"
-                                        f"{p.nome} ({p.coren}), {p.cargo}, {sigla} {p.local}<br>{p.turno}"
+                                        f"{p.nome} ({sigla} {p.local})"
                                         f"</div>"
                                     )
                                 for p in folgas_noite:
-                                    bg_color = "#cccccc"  # Cinza para folga
+                                    bg_color = "#cccccc"
                                     cell_content += (
                                         f"<div style='background-color: {bg_color}; padding: 1px; margin: 1px; border-radius: 2px; font-size: 10px; text-align: left; color: #000000;'>"
-                                        f"{p.nome} ({p.coren}), {p.cargo} (Folga)"
+                                        f"{p.nome} (Folga)"
                                         f"</div>"
                                     )
                         else:
@@ -399,47 +413,44 @@ def visualizacao_geral():
                     cell_content += f"<div style='font-weight: bold; text-align: center; font-size: 12px; color: #ffffff;'>{dia}</div>"
                     try:
                         if prestadores:
-                            # Separar prestadores por turno (Dia e Noite) e verificar folgas
                             prestadores_dia = sorted([p for p in prestadores if "Dia" in p.turno and not any(date(next_year, next_month, dia) <= data_fim and date(next_year, next_month, dia) >= data_inicio for data_inicio, data_fim in p.folgas)], key=lambda x: x.nome)
                             prestadores_noite = sorted([p for p in prestadores if "Noite" in p.turno and not any(date(next_year, next_month, dia) <= data_fim and date(next_year, next_month, dia) >= data_inicio for data_inicio, data_fim in p.folgas)], key=lambda x: x.nome)
                             folgas_dia = sorted([p for p in prestadores if "Dia" in p.turno and any(date(next_year, next_month, dia) <= data_fim and date(next_year, next_month, dia) >= data_inicio for data_inicio, data_fim in p.folgas)], key=lambda x: x.nome)
                             folgas_noite = sorted([p for p in prestadores if "Noite" in p.turno and any(date(next_year, next_month, dia) <= data_fim and date(next_year, next_month, dia) >= data_inicio for data_inicio, data_fim in p.folgas)], key=lambda x: x.nome)
 
-                            # Seção para o turno do dia (7h às 19h)
                             if prestadores_dia or folgas_dia:
                                 cell_content += "<div style='font-size: 10px; font-weight: bold; text-align: center; margin-top: 2px; color: #ffffff;'>7h às 19h</div>"
                                 for p in prestadores_dia:
-                                    bg_color = "#d1e7ff"  # Azul para turno da manhã
+                                    bg_color = "#d1e7ff"
                                     sigla = "AJ" if p.tipo_vinculo == "AJ - PROGRAMA ANJO" else "FT"
                                     cell_content += (
                                         f"<div style='background-color: {bg_color}; padding: 1px; margin: 1px; border-radius: 2px; font-size: 10px; text-align: left; color: #000000;'>"
-                                        f"{p.nome} ({p.coren}), {p.cargo}, {sigla} {p.local}<br>{p.turno}"
+                                        f"{p.nome} ({sigla} {p.local})"
                                         f"</div>"
                                     )
                                 for p in folgas_dia:
-                                    bg_color = "#cccccc"  # Cinza para folga
+                                    bg_color = "#cccccc"
                                     cell_content += (
                                         f"<div style='background-color: {bg_color}; padding: 1px; margin: 1px; border-radius: 2px; font-size: 10px; text-align: left; color: #000000;'>"
-                                        f"{p.nome} ({p.coren}), {p.cargo} (Folga)"
+                                        f"{p.nome} (Folga)"
                                         f"</div>"
                                     )
 
-                            # Seção para o turno da noite (19h às 7h)
                             if prestadores_noite or folgas_noite:
                                 cell_content += "<div style='font-size: 10px; font-weight: bold; text-align: center; margin-top: 2px; color: #ffffff;'>19h às 7h</div>"
                                 for p in prestadores_noite:
-                                    bg_color = "#ffd1dc"  # Rosa para turno da noite
+                                    bg_color = "#ffd1dc"
                                     sigla = "AJ" if p.tipo_vinculo == "AJ - PROGRAMA ANJO" else "FT"
                                     cell_content += (
                                         f"<div style='background-color: {bg_color}; padding: 1px; margin: 1px; border-radius: 2px; font-size: 10px; text-align: left; color: #000000;'>"
-                                        f"{p.nome} ({p.coren}), {p.cargo}, {sigla} {p.local}<br>{p.turno}"
+                                        f"{p.nome} ({sigla} {p.local})"
                                         f"</div>"
                                     )
                                 for p in folgas_noite:
-                                    bg_color = "#cccccc"  # Cinza para folga
+                                    bg_color = "#cccccc"
                                     cell_content += (
                                         f"<div style='background-color: {bg_color}; padding: 1px; margin: 1px; border-radius: 2px; font-size: 10px; text-align: left; color: #000000;'>"
-                                        f"{p.nome} ({p.coren}), {p.cargo} (Folga)"
+                                        f"{p.nome} (Folga)"
                                         f"</div>"
                                     )
                         else:
