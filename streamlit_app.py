@@ -449,115 +449,69 @@ def visualizacao_geral():
     ano, mes = hoje.year, hoje.month
     cal = calendar.monthcalendar(ano, mes)
     dias_da_semana = ["Segunda", "Terça", "Quarta", "Quinta", "Sexta", "Sábado", "Domingo"]
-
     last_day = calendar.monthrange(ano, mes)[1]
     last_day_parity = last_day % 2 == 0
 
-    # Contêiner para o calendário atual
-    st.markdown(f"<div class='printable-content'><h3 style='font-size: 8pt;'>Calendário de {calendar.month_name[mes]} {ano}</h3>", unsafe_allow_html=True)
-    st.markdown("<div class='calendar-row'>", unsafe_allow_html=True)
-    header_cols = st.columns(7)
-    for i, dia_semana in enumerate(dias_da_semana):
-        with header_cols[i]:
-            st.markdown(f"<div class='calendar-cell-header'>{dia_semana}</div>", unsafe_allow_html=True)
-    st.markdown("</div>", unsafe_allow_html=True)
-
-    for semana in cal:
+    # Função auxiliar para renderizar o calendário
+    def render_calendar(start_day, end_day):
+        st.markdown(f"<div class='printable-content'><h3 style='font-size: 8pt;'>Calendário de {calendar.month_name[mes]} {ano} - Dias {start_day} a {end_day}</h3>", unsafe_allow_html=True)
         st.markdown("<div class='calendar-row'>", unsafe_allow_html=True)
-        cols = st.columns(7)
-        for i, dia in enumerate(semana):
-            with cols[i]:
-                if dia == 0:
-                    st.markdown("<div class='calendar-cell'></div>", unsafe_allow_html=True)
-                else:
-                    prestadores = Funcionario.buscar_por_dia(dia, mes, ano, last_day_parity)
-                    cell_content = f"<div class='calendar-cell'>"
-                    cell_content += f"<div style='font-weight: bold; text-align: center; font-size: 7pt;'>{dia}</div>"
-                    try:
-                        if prestadores:
-                            prestadores_dia = sorted([p for p in prestadores if "Dia" in p.turno and not any(date(ano, mes, dia) <= data_fim and date(ano, mes, dia) >= data_inicio for data_inicio, data_fim in p.folgas)], key=lambda x: x.nome)
-                            prestadores_noite = sorted([p for p in prestadores if "Noite" in p.turno and not any(date(ano, mes, dia) <= data_fim and date(ano, mes, dia) >= data_inicio for data_inicio, data_fim in p.folgas)], key=lambda x: x.nome)
-                            folgas_dia = sorted([p for p in prestadores if "Dia" in p.turno and any(date(ano, mes, dia) <= data_fim and date(ano, mes, dia) >= data_inicio for data_inicio, data_fim in p.folgas)], key=lambda x: x.nome)
-                            folgas_noite = sorted([p for p in prestadores if "Noite" in p.turno and any(date(ano, mes, dia) <= data_fim and date(ano, mes, dia) >= data_inicio for data_inicio, data_fim in p.folgas)], key=lambda x: x.nome)
-
-                            if prestadores_dia or folgas_dia:
-                                cell_content += "<div style='font-size: 5pt; font-weight: bold; text-align: center; margin-top: 1px;'>7h às 19h</div>"
-                                for p in prestadores_dia:
-                                    sigla = "AJ" if p.tipo_vinculo == "AJ - PROGRAMA ANJO" else "FT"
-                                    cell_content += f"<div class='calendar-day' style='font-size: 5pt;'>{p.nome} ({p.coren}), {p.cargo}, {sigla} {p.local}</div>"
-                                for p in folgas_dia:
-                                    cell_content += f"<div class='calendar-off' style='font-size: 5pt;'>{p.nome} ({p.coren}), {p.cargo} (Folga)</div>"
-
-                            if prestadores_noite or folgas_noite:
-                                cell_content += "<div style='font-size: 5pt; font-weight: bold; text-align: center; margin-top: 1px;'>19h às 7h</div>"
-                                for p in prestadores_noite:
-                                    sigla = "AJ" if p.tipo_vinculo == "AJ - PROGRAMA ANJO" else "FT"
-                                    cell_content += f"<div class='calendar-night' style='font-size: 5pt;'>{p.nome} ({p.coren}), {p.cargo}, {sigla} {p.local}</div>"
-                                for p in folgas_noite:
-                                    cell_content += f"<div class='calendar-off' style='font-size: 5pt;'>{p.nome} ({p.coren}), {p.cargo} (Folga)</div>"
-                        else:
-                            cell_content += "<div class='calendar-empty' style='font-size: 5pt;'>Nenhum plantão</div>"
-                    except Exception as e:
-                        cell_content += f"<div style='color: red; text-align: center; font-size: 5pt;'>Erro: {str(e)}</div>"
-                    cell_content += "</div>"
-                    st.markdown(cell_content, unsafe_allow_html=True)
+        header_cols = st.columns(7)
+        for i, dia_semana in enumerate(dias_da_semana):
+            with header_cols[i]:
+                st.markdown(f"<div class='calendar-cell-header'>{dia_semana}</div>", unsafe_allow_html=True)
         st.markdown("</div>", unsafe_allow_html=True)
-    st.markdown("</div>", unsafe_allow_html=True)
 
-    # Contêiner para o próximo mês
-    st.markdown(f"<div class='printable-content'><h3 style='font-size: 8pt;'>Previsão para {calendar.month_name[mes + 1 if mes < 12 else 1]} {ano + 1 if mes == 12 else ano}</h3>", unsafe_allow_html=True)
-    st.markdown("<div class='calendar-row'>", unsafe_allow_html=True)
-    header_cols_next = st.columns(7)
-    for i, dia_semana in enumerate(dias_da_semana):
-        with header_cols_next[i]:
-            st.markdown(f"<div class='calendar-cell-header'>{dia_semana}</div>", unsafe_allow_html=True)
-    st.markdown("</div>", unsafe_allow_html=True)
+        for semana in cal:
+            st.markdown("<div class='calendar-row'>", unsafe_allow_html=True)
+            cols = st.columns(7)
+            for i, dia in enumerate(semana):
+                with cols[i]:
+                    if dia == 0 or dia < start_day or dia > end_day:
+                        st.markdown("<div class='calendar-cell'></div>", unsafe_allow_html=True)
+                    else:
+                        prestadores = Funcionario.buscar_por_dia(dia, mes, ano, last_day_parity)
+                        cell_content = f"<div class='calendar-cell'>"
+                        cell_content += f"<div style='font-weight: bold; text-align: center; font-size: 7pt;'>{dia}</div>"
+                        try:
+                            if prestadores:
+                                prestadores_dia = sorted([p for p in prestadores if "Dia" in p.turno and not any(date(ano, mes, dia) <= data_fim and date(ano, mes, dia) >= data_inicio for data_inicio, data_fim in p.folgas)], key=lambda x: x.nome)
+                                prestadores_noite = sorted([p for p in prestadores if "Noite" in p.turno and not any(date(ano, mes, dia) <= data_fim and date(ano, mes, dia) >= data_inicio for data_inicio, data_fim in p.folgas)], key=lambda x: x.nome)
+                                folgas_dia = sorted([p for p in prestadores if "Dia" in p.turno and any(date(ano, mes, dia) <= data_fim and date(ano, mes, dia) >= data_inicio for data_inicio, data_fim in p.folgas)], key=lambda x: x.nome)
+                                folgas_noite = sorted([p for p in prestadores if "Noite" in p.turno and any(date(ano, mes, dia) <= data_fim and date(ano, mes, dia) >= data_inicio for data_inicio, data_fim in p.folgas)], key=lambda x: x.nome)
 
-    next_month = mes + 1 if mes < 12 else 1
-    next_year = ano + 1 if mes == 12 else ano
-    next_cal = calendar.monthcalendar(next_year, next_month)
+                                if prestadores_dia or folgas_dia:
+                                    cell_content += "<div style='font-size: 5pt; font-weight: bold; text-align: center; margin-top: 1px;'>7h às 19h</div>"
+                                    for p in prestadores_dia:
+                                        sigla = "AJ" if p.tipo_vinculo == "AJ - PROGRAMA ANJO" else "FT"
+                                        cell_content += f"<div class='calendar-day' style='font-size: 5pt;'>{p.nome} ({p.coren}), {p.cargo}, {sigla} {p.local}</div>"
+                                    for p in folgas_dia:
+                                        cell_content += f"<div class='calendar-off' style='font-size: 5pt;'>{p.nome} ({p.coren}), {p.cargo} (Folga)</div>"
 
-    for semana in next_cal:
-        st.markdown("<div class='calendar-row'>", unsafe_allow_html=True)
-        cols = st.columns(7)
-        for i, dia in enumerate(semana):
-            with cols[i]:
-                if dia == 0:
-                    st.markdown("<div class='calendar-cell'></div>", unsafe_allow_html=True)
-                else:
-                    prestadores = Funcionario.buscar_por_dia(dia, next_month, next_year, last_day_parity)
-                    cell_content = f"<div class='calendar-cell'>"
-                    cell_content += f"<div style='font-weight: bold; text-align: center; font-size: 7pt;'>{dia}</div>"
-                    try:
-                        if prestadores:
-                            prestadores_dia = sorted([p for p in prestadores if "Dia" in p.turno and not any(date(next_year, next_month, dia) <= data_fim and date(next_year, next_month, dia) >= data_inicio for data_inicio, data_fim in p.folgas)], key=lambda x: x.nome)
-                            prestadores_noite = sorted([p for p in prestadores if "Noite" in p.turno and not any(date(next_year, next_month, dia) <= data_fim and date(next_year, next_month, dia) >= data_inicio for data_inicio, data_fim in p.folgas)], key=lambda x: x.nome)
-                            folgas_dia = sorted([p for p in prestadores if "Dia" in p.turno and any(date(next_year, next_month, dia) <= data_fim and date(next_year, next_month, dia) >= data_inicio for data_inicio, data_fim in p.folgas)], key=lambda x: x.nome)
-                            folgas_noite = sorted([p for p in prestadores if "Noite" in p.turno and any(date(next_year, next_month, dia) <= data_fim and date(next_year, next_month, dia) >= data_inicio for data_inicio, data_fim in p.folgas)], key=lambda x: x.nome)
-
-                            if prestadores_dia or folgas_dia:
-                                cell_content += "<div style='font-size: 5pt; font-weight: bold; text-align: center; margin-top: 1px;'>7h às 19h</div>"
-                                for p in prestadores_dia:
-                                    sigla = "AJ" if p.tipo_vinculo == "AJ - PROGRAMA ANJO" else "FT"
-                                    cell_content += f"<div class='calendar-day' style='font-size: 5pt;'>{p.nome} ({p.coren}), {p.cargo}, {sigla} {p.local}</div>"
-                                for p in folgas_dia:
-                                    cell_content += f"<div class='calendar-off' style='font-size: 5pt;'>{p.nome} ({p.coren}), {p.cargo} (Folga)</div>"
-
-                            if prestadores_noite or folgas_noite:
-                                cell_content += "<div style='font-size: 5pt; font-weight: bold; text-align: center; margin-top: 1px;'>19h às 7h</div>"
-                                for p in prestadores_noite:
-                                    sigla = "AJ" if p.tipo_vinculo == "AJ - PROGRAMA ANJO" else "FT"
-                                    cell_content += f"<div class='calendar-night' style='font-size: 5pt;'>{p.nome} ({p.coren}), {p.cargo}, {sigla} {p.local}</div>"
-                                for p in folgas_noite:
-                                    cell_content += f"<div class='calendar-off' style='font-size: 5pt;'>{p.nome} ({p.coren}), {p.cargo} (Folga)</div>"
-                        else:
-                            cell_content += "<div class='calendar-empty' style='font-size: 5pt;'>Nenhum plantão</div>"
-                    except Exception as e:
-                        cell_content += f"<div style='color: red; text-align: center; font-size: 5pt;'>Erro: {str(e)}</div>"
-                    cell_content += "</div>"
-                    st.markdown(cell_content, unsafe_allow_html=True)
+                                if prestadores_noite or folgas_noite:
+                                    cell_content += "<div style='font-size: 5pt; font-weight: bold; text-align: center; margin-top: 1px;'>19h às 7h</div>"
+                                    for p in prestadores_noite:
+                                        sigla = "AJ" if p.tipo_vinculo == "AJ - PROGRAMA ANJO" else "FT"
+                                        cell_content += f"<div class='calendar-night' style='font-size: 5pt;'>{p.nome} ({p.coren}), {p.cargo}, {sigla} {p.local}</div>"
+                                    for p in folgas_noite:
+                                        cell_content += f"<div class='calendar-off' style='font-size: 5pt;'>{p.nome} ({p.coren}), {p.cargo} (Folga)</div>"
+                            else:
+                                cell_content += "<div class='calendar-empty' style='font-size: 5pt;'>Nenhum plantão</div>"
+                        except Exception as e:
+                            cell_content += f"<div style='color: red; text-align: center; font-size: 5pt;'>Erro: {str(e)}</div>"
+                        cell_content += "</div>"
+                        st.markdown(cell_content, unsafe_allow_html=True)
+            st.markdown("</div>", unsafe_allow_html=True)
         st.markdown("</div>", unsafe_allow_html=True)
-    st.markdown("</div>", unsafe_allow_html=True)
+
+    # Abas para os períodos
+    tab1, tab2 = st.tabs(["1ª Quinzena (1-15)", f"2ª Quinzena (16-{last_day})"])
+
+    with tab1:
+        render_calendar(1, 15)
+
+    with tab2:
+        render_calendar(16, last_day)
 
 # Menu principal
 def main_menu():
