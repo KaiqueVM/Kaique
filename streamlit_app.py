@@ -24,6 +24,7 @@ def init_db():
 # Classe Funcionario
 class Funcionario:
     _funcionarios = {}
+
     def __init__(self, id, nome, coren, cargo, tipo_vinculo, data_admissao, gerente=False, turno=None, local=None):
         self.id = id
         self.nome = nome
@@ -35,11 +36,14 @@ class Funcionario:
         self.turno = turno
         self.local = local
         self._senha_hash = None
-        self.folgas = []
+        self.folgas = []  # Lista temporária para uso imediato
+
     def set_senha(self, senha):
         self._senha_hash = hashlib.sha256(senha.encode()).hexdigest()
+
     def checa_senha(self, senha):
         return self._senha_hash == hashlib.sha256(senha.encode()).hexdigest()
+
     def save(self):
         conn = get_db_connection()
         c = conn.cursor()
@@ -47,7 +51,9 @@ class Funcionario:
                      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)''',
                   (self.id, self.nome, self.coren, self.cargo, self.tipo_vinculo, self.data_admissao.isoformat(),
                    1 if self.gerente else 0, self.turno, self.local, self._senha_hash))
+        # Remover folgas antigas do banco
         c.execute('DELETE FROM folgas WHERE id_funcionario = ?', (self.id,))
+        # Salvar novas folgas
         for inicio, fim in self.folgas:
             c.execute('INSERT INTO folgas (id_funcionario, data_inicio, data_fim) VALUES (?, ?, ?)',
                       (self.id, inicio.isoformat(), fim.isoformat()))
@@ -57,6 +63,8 @@ class Funcionario:
         if "funcionarios_state" not in st.session_state:
             st.session_state["funcionarios_state"] = {}
         st.session_state["funcionarios_state"][self.id] = self
+        st.write(f"DEBUG: Funcionário salvo com ID {self.id}")
+
     @classmethod
     def load_all(cls):
         conn = get_db_connection()
@@ -72,17 +80,20 @@ class Funcionario:
         if "funcionarios_state" not in st.session_state:
             st.session_state["funcionarios_state"] = {}
         st.session_state["funcionarios_state"].update(cls._funcionarios)
+
     @classmethod
     def get_funcionario_por_id(cls, id):
         if not cls._funcionarios:
             cls.load_all()
         return cls._funcionarios.get(id)
+
     @classmethod
     def buscar_por_nome(cls, nome):
         if not cls._funcionarios:
             cls.load_all()
         nome = nome.strip().lower()
         return [f for f in cls._funcionarios.values() if f.nome.strip().lower().find(nome) != -1]
+
     @classmethod
     def buscar_por_dia(cls, dia, mes, ano, last_day_parity=None):
         if not cls._funcionarios:
@@ -121,8 +132,9 @@ def init_session():
         st.session_state["pagina"] = "login"
     if "funcionarios_state" not in st.session_state:
         st.session_state["funcionarios_state"] = {}
-    Funcionario._funcionarios = st.session_state.get("funcionarios_state", {})
+    Funcionario._funcionarios = st.session_state["funcionarios_state"]
     Funcionario.load_all()
+    
     hoje = date.today()
     for funcionario in Funcionario._funcionarios.values():
         if funcionario.tipo_vinculo == "AJ - PROGRAMA ANJO":
@@ -130,18 +142,22 @@ def init_session():
             if dias_desde_admissao >= 7:
                 funcionario.tipo_vinculo = "FT - EFETIVADO"
                 funcionario.save()
+                st.write(f"DEBUG: Funcionário {funcionario.nome} movido de AJ para FT após {dias_desde_admissao} dias.")
 
 # Tela de login
 def login_screen():
     st.title("Pequeno Cotolengo - Login")
+    
     with st.form("login_form"):
         coren = st.text_input("COREN", value="56.127")
         senha = st.text_input("Senha", type="password", value="147258")
         submitted = st.form_submit_button("Entrar")
+        
         if submitted:
             if not coren or not senha:
                 st.error("Por favor, preencha todos os campos.")
                 return
+                
             with st.spinner("Verificando credenciais..."):
                 try:
                     funcionario = Funcionario.get_funcionario_por_id(coren)
@@ -153,9 +169,15 @@ def login_screen():
                     if funcionario and funcionario.checa_senha(senha):
                         if funcionario.cargo.lower() in ["gerente", "supervisor"]:
                             st.session_state["autenticado"] = True
-                            st.session_state["usuario"] = {"id": funcionario.id, "nome": funcionario.nome, "coren": funcionario.coren, "cargo": funcionario.cargo, "gerente": funcionario.gerente}
+                            st.session_state["usuario"] = {
+                                "id": funcionario.id,
+                                "nome": funcionario.nome,
+                                "coren": funcionario.coren,
+                                "cargo": funcionario.cargo,
+                                "gerente": funcionario.gerente
+                            }
                             st.session_state["pagina"] = "menu"
-                            st.rerun()
+                            st.success(f"Bem-vindo(a), {funcionario.nome}!")
                         else:
                             st.error("Apenas gerente ou supervisor têm acesso.")
                     else:
@@ -163,7 +185,7 @@ def login_screen():
                 except Exception as e:
                     st.error(f"Erro ao autenticar: {str(e)}")
 
-# Adicionar Supervisor / Prestador e Gerenciar (sem alterações)
+# Tela para adicionar novo supervisor
 def adicionar_supervisor():
     st.header("Adicionar Novo Supervisor")
     with st.form("form_adicionar_supervisor"):
@@ -171,14 +193,18 @@ def adicionar_supervisor():
         nome = st.text_input("Nome do Supervisor", key="nome_supervisor")
         senha = st.text_input("Senha", type="password", key="senha_supervisor")
         submitted = st.form_submit_button("Salvar Supervisor")
+        
         if submitted:
             if not coren or not nome or not senha:
                 st.warning("Por favor, preencha todos os campos obrigatórios.")
                 return
+
             try:
-                if Funcionario.get_funcionario_por_id(coren):
+                existente = Funcionario.get_funcionario_por_id(coren)
+                if existente:
                     st.error("Já existe um supervisor com esse COREN.")
                     return
+
                 novo = Funcionario(coren, nome, coren, "supervisor", "FT - EFETIVADO", date.today(), gerente=False)
                 novo.set_senha(senha)
                 novo.save()
@@ -189,6 +215,7 @@ def adicionar_supervisor():
             except Exception as e:
                 st.error(f"Erro ao cadastrar supervisor: {str(e)}")
 
+# Tela para adicionar novo prestador
 def adicionar_prestador():
     st.header("Adicionar Novo Prestador de Serviço")
     with st.form("form_adicionar_prestador"):
@@ -197,189 +224,357 @@ def adicionar_prestador():
         coren = st.text_input("COREN", key="coren_prestador")
         cargo = st.text_input("Cargo", key="cargo_prestador")
         data_admissao = st.date_input("Data de admissão", value=date.today(), key="data_prestador")
-        tipo_vinculo = st.selectbox("Tipo de vínculo", ["AJ - PROGRAMA ANJO", "FT - EFETIVADO"], key="vinculo_prestador")
+        tipo_vinculo = st.selectbox(
+            "Tipo de vínculo",
+            ["AJ - PROGRAMA ANJO", "FT - EFETIVADO"],
+            key="vinculo_prestador"
+        )
         salvar = st.form_submit_button("Salvar")
+
     if salvar:
         if not nome or not mat or not coren or not cargo:
             st.warning("Por favor, preencha todos os campos obrigatórios.")
             return
+
         try:
-            if Funcionario.get_funcionario_por_id(mat):
+            st.write(f"DEBUG: Tentando adicionar prestador - Nome: {nome}, MAT: {mat}, COREN: {coren}")
+            existente = Funcionario.get_funcionario_por_id(mat)
+            if existente:
                 st.error("Já existe um prestador com essa matrícula.")
                 return
+
             novo = Funcionario(mat, nome, coren, cargo, tipo_vinculo, data_admissao, gerente=False)
             novo.save()
-            st.success("Prestador cadastrado com sucesso!")
-            time.sleep(1)
-            st.session_state["pagina"] = "menu"
-            st.rerun()
+
+            if mat in Funcionario._funcionarios:
+                st.success("Prestador cadastrado com sucesso!")
+                time.sleep(1)
+                st.session_state["pagina"] = "menu"
+                st.rerun()
+            else:
+                st.error("Falha ao salvar o prestador. O funcionário não foi encontrado no dicionário.")
         except Exception as e:
             st.error(f"Erro ao cadastrar prestador: {str(e)}")
 
+# Tela para gerenciar prestadores
 def gerenciar_prestadores():
     st.header("Gerenciar Pessoas Já Cadastradas")
+    
     nome_busca = st.text_input("Digite o nome do prestador para buscar", key="busca_prestador")
     if nome_busca:
         try:
             prestadores = Funcionario.buscar_por_nome(nome_busca)
+            st.write(f"DEBUG: Prestadores encontrados: {len(prestadores)}")
+            st.write(f"DEBUG: Funcionários no dicionário: {len(Funcionario._funcionarios)}")
             if not prestadores:
                 st.warning("Nenhum prestador encontrado com esse nome.")
                 return
+
             for prestador in prestadores:
-                with st.container(border=True):
-                    st.subheader(f"Prestador: {prestador.nome}")
-                    cols = st.columns(3)
-                    cols[0].write(f"**Matrícula:** {prestador.id}")
-                    cols[1].write(f"**COREN:** {prestador.coren}")
-                    cols[2].write(f"**Cargo:** {prestador.cargo}")
-                    cols[0].write(f"**Vínculo:** {prestador.tipo_vinculo}")
-                    cols[1].write(f"**Admissão:** {prestador.data_admissao.strftime('%d/%m/%Y')}")
-                    folgas_str = ', '.join([f"{i.strftime('%d/%m')} a {f.strftime('%d/%m')}" for i, f in prestador.folgas]) if prestador.folgas else 'Nenhuma'
-                    st.write(f"**Folgas:** {folgas_str}")
-                    with st.form(f"form_agendamento_{prestador.id}"):
-                        form_cols = st.columns(2)
-                        with form_cols[0]:
-                            turno = st.selectbox("Turno", ["Dia 1", "Dia 2", "Noite 1", "Noite 2"], key=f"turno_{prestador.id}", index=["Dia 1", "Dia 2", "Noite 1", "Noite 2"].index(prestador.turno) if prestador.turno else 0)
-                            local = st.selectbox("Local", ["UH", "UCCI"], key=f"local_{prestador.id}", index=["UH", "UCCI"].index(prestador.local) if prestador.local else 0)
-                        with form_cols[1]:
-                            st.subheader("Registrar Folga")
-                            data_inicio_folga = st.date_input("Início da Folga", key=f"folga_inicio_{prestador.id}")
-                            data_fim_folga = st.date_input("Fim da Folga", key=f"folga_fim_{prestador.id}")
-                        
-                        btn_cols = st.columns(3)
-                        if btn_cols[0].form_submit_button("Salvar Agendamento", use_container_width=True):
-                            prestador.turno = turno
-                            prestador.local = local
+                st.subheader(f"Prestador: {prestador.nome}")
+                st.write(f"Matrícula: {prestador.id}")
+                st.write(f"COREN: {prestador.coren}")
+                st.write(f"Cargo: {prestador.cargo}")
+                st.write(f"Tipo de Vínculo: {prestador.tipo_vinculo}")
+                st.write(f"Data de Admissão: {prestador.data_admissao}")
+                st.write(f"Folgas: {', '.join([f'{inicio} a {fim}' for inicio, fim in prestador.folgas]) if prestador.folgas else 'Nenhuma'}")
+
+                with st.form(f"form_agendamento_{prestador.id}"):
+                    turno = st.selectbox(
+                        "Turno",
+                        ["Dia 1", "Dia 2", "Noite 1", "Noite 2"],
+                        key=f"turno_{prestador.id}"
+                    )
+                    local = st.selectbox(
+                        "Local",
+                        ["UH", "UCCI"],
+                        key=f"local_{prestador.id}"
+                    )
+                    st.subheader("Registrar Folga")
+                    data_inicio_folga = st.date_input("Data de Início da Folga", key=f"folga_inicio_{prestador.id}")
+                    data_fim_folga = st.date_input("Data de Fim da Folga", key=f"folga_fim_{prestador.id}")
+                    salvar_agendamento = st.form_submit_button("Salvar Agendamento")
+                    registrar_folga = st.form_submit_button("Registrar Folga")
+                    excluir = st.form_submit_button("Excluir Prestador")
+
+                    if salvar_agendamento:
+                        prestador.turno = turno
+                        prestador.local = local
+                        prestador.save()
+                        st.success(f"Agendamento atualizado para {prestador.nome}!")
+                        time.sleep(1)
+                        st.session_state["pagina"] = "menu"
+                        st.rerun()
+
+                    if registrar_folga:
+                        if data_inicio_folga > data_fim_folga:
+                            st.error("A data de início da folga deve ser anterior ou igual à data de fim.")
+                        else:
+                            prestador.folgas.append((data_inicio_folga, data_fim_folga))
                             prestador.save()
-                            st.success(f"Agendamento atualizado para {prestador.nome}!")
-                            time.sleep(1); st.rerun()
-                        if btn_cols[1].form_submit_button("Registrar Folga", use_container_width=True):
-                            if data_inicio_folga > data_fim_folga:
-                                st.error("A data de início da folga deve ser anterior ou igual à data de fim.")
-                            else:
-                                prestador.folgas.append((data_inicio_folga, data_fim_folga))
-                                prestador.save()
-                                st.success(f"Folga registrada para {prestador.nome}!"); time.sleep(1); st.rerun()
-                        if btn_cols[2].form_submit_button("🗑️ Excluir Prestador", type="primary", use_container_width=True):
-                            conn = get_db_connection(); c = conn.cursor()
-                            c.execute('DELETE FROM folgas WHERE id_funcionario = ?', (prestador.id,)); c.execute('DELETE FROM funcionarios WHERE id = ?', (prestador.id,)); conn.commit(); conn.close()
-                            if prestador.id in Funcionario._funcionarios: del Funcionario._funcionarios[prestador.id]
-                            if "funcionarios_state" in st.session_state and prestador.id in st.session_state["funcionarios_state"]: del st.session_state["funcionarios_state"][prestador.id]
-                            st.success(f"Prestador {prestador.nome} excluído!"); time.sleep(1); st.rerun()
+                            st.success(f"Folga registrada para {prestador.nome} de {data_inicio_folga} a {data_fim_folga}!")
+                            time.sleep(1)
+                            st.rerun()
+
+                    if excluir:
+                        if prestador.id in Funcionario._funcionarios:
+                            conn = get_db_connection()
+                            c = conn.cursor()
+                            c.execute('DELETE FROM folgas WHERE id_funcionario = ?', (prestador.id,))
+                            c.execute('DELETE FROM funcionarios WHERE id = ?', (prestador.id,))
+                            conn.commit()
+                            conn.close()
+                            del Funcionario._funcionarios[prestador.id]
+                            if "funcionarios_state" in st.session_state and prestador.id in st.session_state["funcionarios_state"]:
+                                del st.session_state["funcionarios_state"][prestador.id]
+                            st.success(f"Prestador {prestador.nome} excluído com sucesso!")
+                            time.sleep(1)
+                            st.session_state["pagina"] = "menu"
+                            st.rerun()
         except Exception as e:
             st.error(f"Erro ao buscar prestadores: {str(e)}")
 
-# =============================================================================
-# FUNÇÃO DE VISUALIZAÇÃO GERAL (AJUSTADA PARA IMPRESSÃO COM CTRL+P)
-# =============================================================================
+# Tela de visualização geral
 def visualizacao_geral():
     st.header("Visualização Geral dos Plantões")
-
+    
     # Adicionar CSS para impressão
     st.markdown("""
         <style>
         @media print {
-            body * {
-                display: none !important;
-            }
-            .printable-content, .printable-content * {
-                display: block !important;
-                width: 100% !important;
-                height: auto !important;
+            body, .stApp, .main, .block-container {
+                background-color: white !important;
+                color: black !important;
+                width: 210mm !important;
+                max-width: 210mm !important;
+                height: 297mm !important;
+                max-height: 297mm !important;
                 margin: 0 !important;
-                padding: 0 !important;
-                font-size: 8pt !important;
-            }
-            table {
-                width: 100% !important;
-                border-collapse: collapse !important;
-                page-break-inside: avoid !important;
-            }
-            th, td {
-                border: 1px solid #ccc !important;
-                padding: 2px !important;
-                vertical-align: top !important;
+                padding: 1mm !important;
                 font-size: 6pt !important;
             }
-            th {
+            [data-testid="stSidebar"], .stButton, [data-testid="stToolbar"] {
+                display: none !important;
+            }
+            .printable-content {
+                display: flex !important;
+                flex-wrap: wrap !important;
+                width: 100% !important;
+                margin: 0 !important;
+                padding: 0 !important;
+            }
+            .calendar-row {
+                display: flex !important;
+                width: 100% !important;
+                margin: 0 !important;
+                padding: 0 !important;
+            }
+            .calendar-cell {
+                background-color: white !important;
+                border: 1px solid black !important;
+                color: black !important;
+                padding: 1px !important;
+                min-height: 40px !important;
+                font-size: 6pt !important;
+                width: 28mm !important;
+                box-sizing: border-box !important;
+                margin: 0 !important;
+            }
+            .calendar-cell-header {
                 font-weight: bold !important;
                 text-align: center !important;
+                font-size: 7pt !important;
+                color: black !important;
+                padding: 1px !important;
+                width: 28mm !important;
+                box-sizing: border-box !important;
+                margin: 0 !important;
+            }
+            .calendar-day {
+                background-color: #e6f3ff !important;
+                color: black !important;
+                border: 1px solid #ccc !important;
+                font-size: 5pt !important;
+                padding: 1px !important;
+                margin: 0 !important;
+                border-radius: 1px !important;
+                line-height: 1 !important;
+            }
+            .calendar-night {
+                background-color: #ffe6ee !important;
+                color: black !important;
+                border: 1px solid #ccc !important;
+                font-size: 5pt !important;
+                padding: 1px !important;
+                margin: 0 !important;
+                border-radius: 1px !important;
+                line-height: 1 !important;
+            }
+            .calendar-off {
+                background-color: #f0f0f0 !important;
+                color: black !important;
+                border: 1px solid #ccc !important;
+                font-size: 5pt !important;
+                padding: 1px !important;
+                margin: 0 !important;
+                border-radius: 1px !important;
+                line-height: 1 !important;
+            }
+            .calendar-empty {
+                background-color: white !important;
+                color: black !important;
+                font-style: italic !important;
+                font-size: 5pt !important;
+                text-align: center !important;
+            }
+            .stMarkdown, .stHeader {
+                page-break-inside: avoid !important;
+            }
+            /* Ajuste para colunas */
+            .stColumn {
+                width: 14.28% !important;
+                max-width: 28mm !important;
+                box-sizing: border-box !important;
+                margin: 0 !important;
+                padding: 0 !important;
             }
         }
         </style>
     """, unsafe_allow_html=True)
 
     # Instrução para impressão
-    st.info("Para imprimir a escala, pressione **Ctrl+P** (Windows) ou **Cmd+P** (Mac) no seu navegador e selecione a quinzena desejada.")
-
-    # --- FUNÇÃO AUXILIAR PARA RENDERIZAR O CALENDÁRIO ---
-    def render_calendar_html(ano, mes, start_day, end_day):
-        calendar.setfirstweekday(calendar.SUNDAY)  # Começa a semana no Domingo
-        dias_da_semana = ["Domingo", "Segunda", "Terça", "Quarta", "Quinta", "Sexta", "Sábado"]
-        cal = calendar.monthcalendar(ano, mes)
-        last_day_parity = calendar.monthrange(ano, mes)[1] % 2 == 0
-        
-        header_html = "".join([f"<th style='border: 1px solid #ccc; padding: 4px; text-align: center; font-size: 8pt; width: 14%;'>{d}</th>" for d in dias_da_semana])
-        html = f"<table style='width: 100%; border-collapse: collapse;'><thead><tr>{header_html}</tr></thead><tbody>"
-
-        for semana in cal:
-            html += "<tr>"
-            for dia in semana:
-                if dia == 0 or not (start_day <= dia <= end_day):
-                    html += "<td style='border: 1px solid #ccc; height: 100px;'></td>"
-                    continue
-
-                prestadores = Funcionario.buscar_por_dia(dia, mes, ano, last_day_parity)
-                cell_content = f"<div style='font-weight: bold; text-align: center;'>{dia}</div>"
-                
-                prestadores_dia = sorted([p for p in prestadores if "Dia" in p.turno and not any(date(ano, mes, dia) >= di and date(ano, mes, dia) <= df for di, df in p.folgas)], key=lambda x: x.nome)
-                prestadores_noite = sorted([p for p in prestadores if "Noite" in p.turno and not any(date(ano, mes, dia) >= di and date(ano, mes, dia) <= df for di, df in p.folgas)], key=lambda x: x.nome)
-                folgas = sorted([p for p in prestadores if any(date(ano, mes, dia) >= di and date(ano, mes, dia) <= df for di, df in p.folgas)], key=lambda x: x.nome)
-
-                if prestadores_dia:
-                    cell_content += "<div style='font-size: 7pt; text-align: center; font-weight: bold; background-color: #e0e0e0;'>7h-19h</div>"
-                    for p in prestadores_dia:
-                        cell_content += f"<div style='font-size: 6pt; background-color: #d1e7ff; padding: 1px; margin-top: 1px; border-radius: 2px;'>{p.nome.split()[0]} - {p.local}</div>"
-                if prestadores_noite:
-                    cell_content += "<div style='font-size: 7pt; text-align: center; font-weight: bold; background-color: #e0e0e0;'>19h-7h</div>"
-                    for p in prestadores_noite:
-                        cell_content += f"<div style='font-size: 6pt; background-color: #ffd1dc; padding: 1px; margin-top: 1px; border-radius: 2px;'>{p.nome.split()[0]} - {p.local}</div>"
-                if folgas:
-                    cell_content += "<div style='font-size: 7pt; text-align: center; font-weight: bold; background-color: #e0e0e0;'>Folga</div>"
-                    for p in folgas:
-                        cell_content += f"<div style='font-size: 6pt; background-color: #f0f0f0; padding: 1px; margin-top: 1px; border-radius: 2px;'>{p.nome.split()[0]}</div>"
-
-                html += f"<td style='border: 1px solid #ccc; vertical-align: top; padding: 2px;'>{cell_content}</td>"
-            html += "</tr>"
-        html += "</tbody></table>"
-        return html
+    st.info("Para imprimir a tabela, pressione **Ctrl+P** (Windows) ou **Cmd+P** (Mac) no seu navegador.")
 
     hoje = datetime.today()
     ano, mes = hoje.year, hoje.month
-    ultimo_dia_mes = calendar.monthrange(ano, mes)[1]
-    
-    # --- ABAS PARA CADA QUINZENA ---
-    tab1, tab2 = st.tabs(["1ª Quinzena (1-15)", "2ª Quinzena (16-Fim)"])
+    cal = calendar.monthcalendar(ano, mes)
+    dias_da_semana = ["Segunda", "Terça", "Quarta", "Quinta", "Sexta", "Sábado", "Domingo"]
 
-    with tab1:
-        st.subheader(f"Escala de {calendar.month_name[mes]} {ano} - Dias 1 a 15")
-        html_q1 = render_calendar_html(ano, mes, 1, 15)
-        st.markdown(f"<div class='printable-content'>{html_q1}</div>", unsafe_allow_html=True)
-        
-    with tab2:
-        st.subheader(f"Escala de {calendar.month_name[mes]} {ano} - Dias 16 a {ultimo_dia_mes}")
-        html_q2 = render_calendar_html(ano, mes, 16, ultimo_dia_mes)
-        st.markdown(f"<div class='printable-content'>{html_q2}</div>", unsafe_allow_html=True)
+    last_day = calendar.monthrange(ano, mes)[1]
+    last_day_parity = last_day % 2 == 0
+
+    # Contêiner para o calendário atual
+    st.markdown(f"<div class='printable-content'><h3 style='font-size: 8pt;'>Calendário de {calendar.month_name[mes]} {ano}</h3>", unsafe_allow_html=True)
+    st.markdown("<div class='calendar-row'>", unsafe_allow_html=True)
+    header_cols = st.columns(7)
+    for i, dia_semana in enumerate(dias_da_semana):
+        with header_cols[i]:
+            st.markdown(f"<div class='calendar-cell-header'>{dia_semana}</div>", unsafe_allow_html=True)
+    st.markdown("</div>", unsafe_allow_html=True)
+
+    for semana in cal:
+        st.markdown("<div class='calendar-row'>", unsafe_allow_html=True)
+        cols = st.columns(7)
+        for i, dia in enumerate(semana):
+            with cols[i]:
+                if dia == 0:
+                    st.markdown("<div class='calendar-cell'></div>", unsafe_allow_html=True)
+                else:
+                    prestadores = Funcionario.buscar_por_dia(dia, mes, ano, last_day_parity)
+                    cell_content = f"<div class='calendar-cell'>"
+                    cell_content += f"<div style='font-weight: bold; text-align: center; font-size: 7pt;'>{dia}</div>"
+                    try:
+                        if prestadores:
+                            prestadores_dia = sorted([p for p in prestadores if "Dia" in p.turno and not any(date(ano, mes, dia) <= data_fim and date(ano, mes, dia) >= data_inicio for data_inicio, data_fim in p.folgas)], key=lambda x: x.nome)
+                            prestadores_noite = sorted([p for p in prestadores if "Noite" in p.turno and not any(date(ano, mes, dia) <= data_fim and date(ano, mes, dia) >= data_inicio for data_inicio, data_fim in p.folgas)], key=lambda x: x.nome)
+                            folgas_dia = sorted([p for p in prestadores if "Dia" in p.turno and any(date(ano, mes, dia) <= data_fim and date(ano, mes, dia) >= data_inicio for data_inicio, data_fim in p.folgas)], key=lambda x: x.nome)
+                            folgas_noite = sorted([p for p in prestadores if "Noite" in p.turno and any(date(ano, mes, dia) <= data_fim and date(ano, mes, dia) >= data_inicio for data_inicio, data_fim in p.folgas)], key=lambda x: x.nome)
+
+                            if prestadores_dia or folgas_dia:
+                                cell_content += "<div style='font-size: 5pt; font-weight: bold; text-align: center; margin-top: 1px;'>7h às 19h</div>"
+                                for p in prestadores_dia:
+                                    sigla = "AJ" if p.tipo_vinculo == "AJ - PROGRAMA ANJO" else "FT"
+                                    cell_content += f"<div class='calendar-day' style='font-size: 5pt;'>{p.nome} ({p.coren}), {p.cargo}, {sigla} {p.local}</div>"
+                                for p in folgas_dia:
+                                    cell_content += f"<div class='calendar-off' style='font-size: 5pt;'>{p.nome} ({p.coren}), {p.cargo} (Folga)</div>"
+
+                            if prestadores_noite or folgas_noite:
+                                cell_content += "<div style='font-size: 5pt; font-weight: bold; text-align: center; margin-top: 1px;'>19h às 7h</div>"
+                                for p in prestadores_noite:
+                                    sigla = "AJ" if p.tipo_vinculo == "AJ - PROGRAMA ANJO" else "FT"
+                                    cell_content += f"<div class='calendar-night' style='font-size: 5pt;'>{p.nome} ({p.coren}), {p.cargo}, {sigla} {p.local}</div>"
+                                for p in folgas_noite:
+                                    cell_content += f"<div class='calendar-off' style='font-size: 5pt;'>{p.nome} ({p.coren}), {p.cargo} (Folga)</div>"
+                        else:
+                            cell_content += "<div class='calendar-empty' style='font-size: 5pt;'>Nenhum plantão</div>"
+                    except Exception as e:
+                        cell_content += f"<div style='color: red; text-align: center; font-size: 5pt;'>Erro: {str(e)}</div>"
+                    cell_content += "</div>"
+                    st.markdown(cell_content, unsafe_allow_html=True)
+        st.markdown("</div>", unsafe_allow_html=True)
+    st.markdown("</div>", unsafe_allow_html=True)
+
+    # Contêiner para o próximo mês
+    st.markdown(f"<div class='printable-content'><h3 style='font-size: 8pt;'>Previsão para {calendar.month_name[mes + 1 if mes < 12 else 1]} {ano + 1 if mes == 12 else ano}</h3>", unsafe_allow_html=True)
+    st.markdown("<div class='calendar-row'>", unsafe_allow_html=True)
+    header_cols_next = st.columns(7)
+    for i, dia_semana in enumerate(dias_da_semana):
+        with header_cols_next[i]:
+            st.markdown(f"<div class='calendar-cell-header'>{dia_semana}</div>", unsafe_allow_html=True)
+    st.markdown("</div>", unsafe_allow_html=True)
+
+    next_month = mes + 1 if mes < 12 else 1
+    next_year = ano + 1 if mes == 12 else ano
+    next_cal = calendar.monthcalendar(next_year, next_month)
+
+    for semana in next_cal:
+        st.markdown("<div class='calendar-row'>", unsafe_allow_html=True)
+        cols = st.columns(7)
+        for i, dia in enumerate(semana):
+            with cols[i]:
+                if dia == 0:
+                    st.markdown("<div class='calendar-cell'></div>", unsafe_allow_html=True)
+                else:
+                    prestadores = Funcionario.buscar_por_dia(dia, next_month, next_year, last_day_parity)
+                    cell_content = f"<div class='calendar-cell'>"
+                    cell_content += f"<div style='font-weight: bold; text-align: center; font-size: 7pt;'>{dia}</div>"
+                    try:
+                        if prestadores:
+                            prestadores_dia = sorted([p for p in prestadores if "Dia" in p.turno and not any(date(next_year, next_month, dia) <= data_fim and date(next_year, next_month, dia) >= data_inicio for data_inicio, data_fim in p.folgas)], key=lambda x: x.nome)
+                            prestadores_noite = sorted([p for p in prestadores if "Noite" in p.turno and not any(date(next_year, next_month, dia) <= data_fim and date(next_year, next_month, dia) >= data_inicio for data_inicio, data_fim in p.folgas)], key=lambda x: x.nome)
+                            folgas_dia = sorted([p for p in prestadores if "Dia" in p.turno and any(date(next_year, next_month, dia) <= data_fim and date(next_year, next_month, dia) >= data_inicio for data_inicio, data_fim in p.folgas)], key=lambda x: x.nome)
+                            folgas_noite = sorted([p for p in prestadores if "Noite" in p.turno and any(date(next_year, next_month, dia) <= data_fim and date(next_year, next_month, dia) >= data_inicio for data_inicio, data_fim in p.folgas)], key=lambda x: x.nome)
+
+                            if prestadores_dia or folgas_dia:
+                                cell_content += "<div style='font-size: 5pt; font-weight: bold; text-align: center; margin-top: 1px;'>7h às 19h</div>"
+                                for p in prestadores_dia:
+                                    sigla = "AJ" if p.tipo_vinculo == "AJ - PROGRAMA ANJO" else "FT"
+                                    cell_content += f"<div class='calendar-day' style='font-size: 5pt;'>{p.nome} ({p.coren}), {p.cargo}, {sigla} {p.local}</div>"
+                                for p in folgas_dia:
+                                    cell_content += f"<div class='calendar-off' style='font-size: 5pt;'>{p.nome} ({p.coren}), {p.cargo} (Folga)</div>"
+
+                            if prestadores_noite or folgas_noite:
+                                cell_content += "<div style='font-size: 5pt; font-weight: bold; text-align: center; margin-top: 1px;'>19h às 7h</div>"
+                                for p in prestadores_noite:
+                                    sigla = "AJ" if p.tipo_vinculo == "AJ - PROGRAMA ANJO" else "FT"
+                                    cell_content += f"<div class='calendar-night' style='font-size: 5pt;'>{p.nome} ({p.coren}), {p.cargo}, {sigla} {p.local}</div>"
+                                for p in folgas_noite:
+                                    cell_content += f"<div class='calendar-off' style='font-size: 5pt;'>{p.nome} ({p.coren}), {p.cargo} (Folga)</div>"
+                        else:
+                            cell_content += "<div class='calendar-empty' style='font-size: 5pt;'>Nenhum plantão</div>"
+                    except Exception as e:
+                        cell_content += f"<div style='color: red; text-align: center; font-size: 5pt;'>Erro: {str(e)}</div>"
+                    cell_content += "</div>"
+                    st.markdown(cell_content, unsafe_allow_html=True)
+        st.markdown("</div>", unsafe_allow_html=True)
+    st.markdown("</div>", unsafe_allow_html=True)
 
 # Menu principal
 def main_menu():
     st.sidebar.title(f"Bem-vindo(a), {st.session_state['usuario']['nome']}")
-    pagina = st.sidebar.radio("Selecione uma opção:", ["Adicionar novo prestador", "Gerenciar prestadores", "Visualização geral"])
+    
+    pagina = st.sidebar.radio(
+        "Selecione uma opção:",
+        ["Adicionar novo prestador", "Gerenciar prestadores", "Visualização geral"]
+    )
+    
     if st.session_state["usuario"]["gerente"]:
         if st.sidebar.button("Novo Registro (Supervisor)"):
             st.session_state["pagina"] = "adicionar_supervisor"
             st.rerun()
+    
     st.session_state["pagina"] = pagina
+    
     if pagina == "Adicionar novo prestador":
         adicionar_prestador()
     elif pagina == "Gerenciar prestadores":
@@ -390,16 +585,19 @@ def main_menu():
 # Botão de logout
 def logout_button():
     if st.sidebar.button("Sair"):
-        st.session_state.clear() # Limpa toda a sessão
+        st.session_state["autenticado"] = False
+        st.session_state["usuario"] = None
+        st.session_state["pagina"] = "login"
         st.rerun()
 
 # Código principal
 def main():
     st.set_page_config(page_title="Sistema Cotolengo", layout="wide")
     init_session()
-    if not st.session_state.get("autenticado"):
+    
+    if not st.session_state["autenticado"]:
         login_screen()
-    elif st.session_state.get("pagina") == "adicionar_supervisor" and st.session_state.get("usuario", {}).get("gerente"):
+    elif st.session_state["pagina"] == "adicionar_supervisor" and st.session_state["usuario"]["gerente"]:
         adicionar_supervisor()
     else:
         logout_button()
