@@ -1,27 +1,3 @@
-Com certeza! Entendi perfeitamente os dois ajustes que você precisa:
-
-1.  **Corrigir o Layout do Calendário:** Ajustar a semana para que os dias da semana (cabeçalhos) correspondam corretamente aos dias do mês, resolvendo o problema de "Domingo e Segunda" estarem agrupados visualmente.
-2.  **Impressão em Duas Abas:** Separar a visualização e a impressão do calendário em duas quinzenas (dias 1-15 e dias 16 até o final do mês).
-
-Para fazer isso, realizei uma reestruturação significativa na função `visualizacao_geral`, tornando-a mais organizada e poderosa para atender às suas necessidades. As outras partes do seu código permanecem intactas.
-
-**Substitua todo o seu código pelo código abaixo.** Ele contém a lógica completa e as correções aplicadas.
-
-### O que foi alterado:
-
-* **Semana Começando no Domingo:** O calendário agora é configurado para iniciar a semana no Domingo, que é o padrão mais comum no Brasil. Os cabeçalhos foram ajustados para `["Domingo", "Segunda", ..., "Sábado"]`.
-* **Abas para Quinzenas:** A interface agora tem duas abas: "Imprimir 1ª Quinzena (1-15)" e "Imprimir 2ª Quinzena (16-Fim)".
-* **Impressão Inteligente:** Cada aba tem seu próprio botão de impressão. Ao clicar, somente o conteúdo daquela aba específica será enviado para a impressora ou PDF.
-* **CSS Refinado:** O CSS foi aprimorado para garantir que o layout do calendário fique perfeito no PDF, com colunas bem definidas e sem quebras estranhas.
-* **Código Reutilizável:** Criei uma função interna para gerar o HTML do calendário, evitando a repetição de código para as duas quinzenas.
-
----
-
-### Código Completo com as Alterações
-
-Copie e cole este código para substituir todo o seu arquivo.
-
-```python
 import streamlit as st
 from datetime import date, datetime, timedelta
 import calendar
