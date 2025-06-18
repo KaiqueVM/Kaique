@@ -3,7 +3,6 @@ from datetime import date, datetime, timedelta
 import calendar
 import hashlib
 import time
-from streamlit_js_eval import streamlit_js_eval
 import sqlite3
 
 # Conexão com o banco de dados SQLite
@@ -335,12 +334,72 @@ def gerenciar_prestadores():
         except Exception as e:
             st.error(f"Erro ao buscar prestadores: {str(e)}")
 
-# Tela de visualizacao geral
+# Tela de visualização geral
 def visualizacao_geral():
     st.header("Visualização Geral dos Plantões")
     
-    if st.button("Imprimir Tabela"):
-        streamlit_js_eval(js_expressions="window.print()")
+    # Adicionar CSS para impressão
+    st.markdown("""
+        <style>
+        @media print {
+            body, .stApp, .main, .block-container {
+                background-color: white !important;
+                color: black !important;
+                width: 100% !important;
+                max-width: 210mm !important;
+                margin: 0 !important;
+                padding: 10mm !important;
+            }
+            [data-testid="stSidebar"], .stButton, [data-testid="stToolbar"] {
+                display: none !important;
+            }
+            .printable-content {
+                display: block !important;
+                width: 100% !important;
+            }
+            .calendar-cell {
+                background-color: white !important;
+                border: 1px solid black !important;
+                color: black !important;
+                padding: 4px !important;
+                min-height: 100px !important;
+                font-size: 10pt !important;
+            }
+            .calendar-cell-header {
+                font-weight: bold !important;
+                text-align: center !important;
+                font-size: 12pt !important;
+                color: black !important;
+            }
+            .calendar-day {
+                background-color: #e6f3ff !important;
+                color: black !important;
+                border: 1px solid #ccc !important;
+            }
+            .calendar-night {
+                background-color: #ffe6ee !important;
+                color: black !important;
+                border: 1px solid #ccc !important;
+            }
+            .calendar-off {
+                background-color: #f0f0f0 !important;
+                color: black !important;
+                border: 1px solid #ccc !important;
+            }
+            .calendar-empty {
+                background-color: white !important;
+                color: black !important;
+                font-style: italic !important;
+            }
+            .stMarkdown, .stHeader {
+                page-break-inside: avoid !important;
+            }
+        }
+        </style>
+    """, unsafe_allow_html=True)
+
+    # Instrução para impressão
+    st.info("Para imprimir a tabela, pressione **Ctrl+P** (Windows) ou **Cmd+P** (Mac) no seu navegador.")
 
     hoje = datetime.today()
     ano, mes = hoje.year, hoje.month
@@ -350,22 +409,23 @@ def visualizacao_geral():
     last_day = calendar.monthrange(ano, mes)[1]
     last_day_parity = last_day % 2 == 0
 
-    st.markdown(f"### Calendário de {calendar.month_name[mes]} {ano}")
+    # Contêiner para o calendário atual
+    st.markdown(f"<div class='printable-content'><h3>Calendário de {calendar.month_name[mes]} {ano}</h3>", unsafe_allow_html=True)
     header_cols = st.columns(7)
     for i, dia_semana in enumerate(dias_da_semana):
         with header_cols[i]:
-            st.markdown(f"<div style='text-align: center; font-weight: bold;'>{dia_semana}</div>", unsafe_allow_html=True)
+            st.markdown(f"<div class='calendar-cell-header'>{dia_semana}</div>", unsafe_allow_html=True)
 
     for semana in cal:
         cols = st.columns(7)
         for i, dia in enumerate(semana):
             with cols[i]:
                 if dia == 0:
-                    st.markdown("<div style='border: 1px solid #bbb; padding: 2px; min-height: 30px; background-color: #343a40;'></div>", unsafe_allow_html=True)
+                    st.markdown("<div class='calendar-cell'></div>", unsafe_allow_html=True)
                 else:
                     prestadores = Funcionario.buscar_por_dia(dia, mes, ano, last_day_parity)
-                    cell_content = f"<div style='border: 1px solid #bbb; padding: 2px; min-height: 30px; background-color: #343a40;'>"
-                    cell_content += f"<div style='font-weight: bold; text-align: center; font-size: 12px; color: #ffffff;'>{dia}</div>"
+                    cell_content = f"<div class='calendar-cell'>"
+                    cell_content += f"<div style='font-weight: bold; text-align: center; font-size: 12pt;'>{dia}</div>"
                     try:
                         if prestadores:
                             prestadores_dia = sorted([p for p in prestadores if "Dia" in p.turno and not any(date(ano, mes, dia) <= data_fim and date(ano, mes, dia) >= data_inicio for data_inicio, data_fim in p.folgas)], key=lambda x: x.nome)
@@ -374,32 +434,30 @@ def visualizacao_geral():
                             folgas_noite = sorted([p for p in prestadores if "Noite" in p.turno and any(date(ano, mes, dia) <= data_fim and date(ano, mes, dia) >= data_inicio for data_inicio, data_fim in p.folgas)], key=lambda x: x.nome)
 
                             if prestadores_dia or folgas_dia:
-                                cell_content += "<div style='font-size: 10px; font-weight: bold; text-align: center; margin-top: 2px; color: #ffffff;'>7h às 19h</div>"
+                                cell_content += "<div style='font-size: 10pt; font-weight: bold; text-align: center; margin-top: 4px;'>7h às 19h</div>"
                                 for p in prestadores_dia:
-                                    bg_color = "#d1e7ff"
                                     sigla = "AJ" if p.tipo_vinculo == "AJ - PROGRAMA ANJO" else "FT"
-                                    cell_content += f"<div style='background-color: {bg_color}; padding: 1px; margin: 1px; border-radius: 2px; font-size: 10px; text-align: left; color: #000000;'>{p.nome} ({p.coren}), {p.cargo}, {sigla} {p.local}<br>{p.turno}</div>"
+                                    cell_content += f"<div class='calendar-day' style='padding: 2px; margin: 2px; border-radius: 2px;'>{p.nome} ({p.coren}), {p.cargo}, {sigla} {p.local}<br>{p.turno}</div>"
                                 for p in folgas_dia:
-                                    bg_color = "#cccccc"
-                                    cell_content += f"<div style='background-color: {bg_color}; padding: 1px; margin: 1px; border-radius: 2px; font-size: 10px; text-align: left; color: #000000;'>{p.nome} ({p.coren}), {p.cargo} (Folga)</div>"
+                                    cell_content += f"<div class='calendar-off' style='padding: 2px; margin: 2px; border-radius: 2px;'>{p.nome} ({p.coren}), {p.cargo} (Folga)</div>"
 
                             if prestadores_noite or folgas_noite:
-                                cell_content += "<div style='font-size: 10px; font-weight: bold; text-align: center; margin-top: 2px; color: #ffffff;'>19h às 7h</div>"
+                                cell_content += "<div style='font-size: 10pt; font-weight: bold; text-align: center; margin-top: 4px;'>19h às 7h</div>"
                                 for p in prestadores_noite:
-                                    bg_color = "#ffd1dc"
                                     sigla = "AJ" if p.tipo_vinculo == "AJ - PROGRAMA ANJO" else "FT"
-                                    cell_content += f"<div style='background-color: {bg_color}; padding: 1px; margin: 1px; border-radius: 2px; font-size: 10px; text-align: left; color: #000000;'>{p.nome} ({p.coren}), {p.cargo}, {sigla} {p.local}<br>{p.turno}</div>"
+                                    cell_content += f"<div class='calendar-night' style='padding: 2px; margin: 2px; border-radius: 2px;'>{p.nome} ({p.coren}), {p.cargo}, {sigla} {p.local}<br>{p.turno}</div>"
                                 for p in folgas_noite:
-                                    bg_color = "#cccccc"
-                                    cell_content += f"<div style='background-color: {bg_color}; padding: 1px; margin: 1px; border-radius: 2px; font-size: 10px; text-align: left; color: #000000;'>{p.nome} ({p.coren}), {p.cargo} (Folga)</div>"
+                                    cell_content += f"<div class='calendar-off' style='padding: 2px; margin: 2px; border-radius: 2px;'>{p.nome} ({p.coren}), {p.cargo} (Folga)</div>"
                         else:
-                            cell_content += "<div style='color: #bbbbbb; font-style: italic; text-align: center; font-size: 10px;'>Nenhum plantão</div>"
+                            cell_content += "<div class='calendar-empty' style='font-size: 10pt; text-align: center; font-style: italic;'>Nenhum plantão</div>"
                     except Exception as e:
-                        cell_content += f"<div style='color: red; text-align: center; font-size: 10px;'>Erro: {str(e)}</div>"
+                        cell_content += f"<div style='color: red; text-align: center; font-size: 10pt;'>Erro: {str(e)}</div>"
                     cell_content += "</div>"
                     st.markdown(cell_content, unsafe_allow_html=True)
+    st.markdown("</div>", unsafe_allow_html=True)
 
-    st.markdown(f"### Previsão para {calendar.month_name[mes + 1 if mes < 12 else 1]} {ano + 1 if mes == 12 else ano}")
+    # Contêiner para o próximo mês
+    st.markdown(f"<div class='printable-content'><h3>Previsão para {calendar.month_name[mes + 1 if mes < 12 else 1]} {ano + 1 if mes == 12 else ano}</h3>", unsafe_allow_html=True)
     next_month = mes + 1 if mes < 12 else 1
     next_year = ano + 1 if mes == 12 else ano
     next_cal = calendar.monthcalendar(next_year, next_month)
@@ -407,18 +465,18 @@ def visualizacao_geral():
     header_cols_next = st.columns(7)
     for i, dia_semana in enumerate(dias_da_semana):
         with header_cols_next[i]:
-            st.markdown(f"<div style='text-align: center; font-weight: bold;'>{dia_semana}</div>", unsafe_allow_html=True)
+            st.markdown(f"<div class='calendar-cell-header'>{dia_semana}</div>", unsafe_allow_html=True)
 
     for semana in next_cal:
         cols = st.columns(7)
         for i, dia in enumerate(semana):
             with cols[i]:
                 if dia == 0:
-                    st.markdown("<div style='border: 1px solid #bbb; padding: 2px; min-height: 30px; background-color: #343a40;'></div>", unsafe_allow_html=True)
+                    st.markdown("<div class='calendar-cell'></div>", unsafe_allow_html=True)
                 else:
                     prestadores = Funcionario.buscar_por_dia(dia, next_month, next_year, last_day_parity)
-                    cell_content = f"<div style='border: 1px solid #bbb; padding: 2px; min-height: 30px; background-color: #343a40;'>"
-                    cell_content += f"<div style='font-weight: bold; text-align: center; font-size: 12px; color: #ffffff;'>{dia}</div>"
+                    cell_content = f"<div class='calendar-cell'>"
+                    cell_content += f"<div style='font-weight: bold; text-align: center; font-size: 12pt;'>{dia}</div>"
                     try:
                         if prestadores:
                             prestadores_dia = sorted([p for p in prestadores if "Dia" in p.turno and not any(date(next_year, next_month, dia) <= data_fim and date(next_year, next_month, dia) >= data_inicio for data_inicio, data_fim in p.folgas)], key=lambda x: x.nome)
@@ -427,30 +485,27 @@ def visualizacao_geral():
                             folgas_noite = sorted([p for p in prestadores if "Noite" in p.turno and any(date(next_year, next_month, dia) <= data_fim and date(next_year, next_month, dia) >= data_inicio for data_inicio, data_fim in p.folgas)], key=lambda x: x.nome)
 
                             if prestadores_dia or folgas_dia:
-                                cell_content += "<div style='font-size: 10px; font-weight: bold; text-align: center; margin-top: 2px; color: #ffffff;'>7h às 19h</div>"
+                                cell_content += "<div style='font-size: 10pt; font-weight: bold; text-align: center; margin-top: 4px;'>7h às 19h</div>"
                                 for p in prestadores_dia:
-                                    bg_color = "#d1e7ff"
                                     sigla = "AJ" if p.tipo_vinculo == "AJ - PROGRAMA ANJO" else "FT"
-                                    cell_content += f"<div style='background-color: {bg_color}; padding: 1px; margin: 1px; border-radius: 2px; font-size: 10px; text-align: left; color: #000000;'>{p.nome} ({p.coren}), {p.cargo}, {sigla} {p.local}<br>{p.turno}</div>"
+                                    cell_content += f"<div class='calendar-day' style='padding: 2px; margin: 2px; border-radius: 2px;'>{p.nome} ({p.coren}), {p.cargo}, {sigla} {p.local}<br>{p.turno}</div>"
                                 for p in folgas_dia:
-                                    bg_color = "#cccccc"
-                                    cell_content += f"<div style='background-color: {bg_color}; padding: 1px; margin: 1px; border-radius: 2px; font-size: 10px; text-align: left; color: #000000;'>{p.nome} ({p.coren}), {p.cargo} (Folga)</div>"
+                                    cell_content += f"<div class='calendar-off' style='padding: 2px; margin: 2px; border-radius: 2px;'>{p.nome} ({p.coren}), {p.cargo} (Folga)</div>"
 
                             if prestadores_noite or folgas_noite:
-                                cell_content += "<div style='font-size: 10px; font-weight: bold; text-align: center; margin-top: 2px; color: #ffffff;'>19h às 7h</div>"
+                                cell_content += "<div style='font-size: 10pt; font-weight: bold; text-align: center; margin-top: 4px;'>19h às 7h</div>"
                                 for p in prestadores_noite:
-                                    bg_color = "#ffd1dc"
                                     sigla = "AJ" if p.tipo_vinculo == "AJ - PROGRAMA ANJO" else "FT"
-                                    cell_content += f"<div style='background-color: {bg_color}; padding: 1px; margin: 1px; border-radius: 2px; font-size: 10px; text-align: left; color: #000000;'>{p.nome} ({p.coren}), {p.cargo}, {sigla} {p.local}<br>{p.turno}</div>"
+                                    cell_content += f"<div class='calendar-night' style='padding: 2px; margin: 2px; border-radius: 2px;'>{p.nome} ({p.coren}), {p.cargo}, {sigla} {p.local}<br>{p.turno}</div>"
                                 for p in folgas_noite:
-                                    bg_color = "#cccccc"
-                                    cell_content += f"<div style='background-color: {bg_color}; padding: 1px; margin: 1px; border-radius: 2px; font-size: 10px; text-align: left; color: #000000;'>{p.nome} ({p.coren}), {p.cargo} (Folga)</div>"
+                                    cell_content += f"<div class='calendar-off' style='padding: 2px; margin: 2px; border-radius: 2px;'>{p.nome} ({p.coren}), {p.cargo} (Folga)</div>"
                         else:
-                            cell_content += "<div style='color: #bbbbbb; font-style: italic; text-align: center; font-size: 10px;'>Nenhum plantão</div>"
+                            cell_content += "<div class='calendar-empty' style='font-size: 10pt; text-align: center; font-style: italic;'>Nenhum plantão</div>"
                     except Exception as e:
-                        cell_content += f"<div style='color: red; text-align: center; font-size: 10px;'>Erro: {str(e)}</div>"
+                        cell_content += f"<div style='color: red; text-align: center; font-size: 10pt;'>Erro: {str(e)}</div>"
                     cell_content += "</div>"
                     st.markdown(cell_content, unsafe_allow_html=True)
+    st.markdown("</div>", unsafe_allow_html=True)
 
 # Menu principal
 def main_menu():
