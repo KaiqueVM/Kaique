@@ -350,21 +350,14 @@ def visualizacao_geral():
                 height: 297mm !important;
                 max-height: 297mm !important;
                 margin: 0 !important;
-                padding: 1mm !important;
+                padding: 2mm !important;
                 font-size: 6pt !important;
             }
             [data-testid="stSidebar"], .stButton, [data-testid="stToolbar"] {
                 display: none !important;
             }
             .printable-content {
-                display: flex !important;
-                flex-wrap: wrap !important;
-                width: 100% !important;
-                margin: 0 !important;
-                padding: 0 !important;
-            }
-            .calendar-row {
-                display: flex !important;
+                display: block !important;
                 width: 100% !important;
                 margin: 0 !important;
                 padding: 0 !important;
@@ -378,7 +371,6 @@ def visualizacao_geral():
                 font-size: 6pt !important;
                 width: 28mm !important;
                 box-sizing: border-box !important;
-                margin: 0 !important;
             }
             .calendar-cell-header {
                 font-weight: bold !important;
@@ -388,7 +380,6 @@ def visualizacao_geral():
                 padding: 1px !important;
                 width: 28mm !important;
                 box-sizing: border-box !important;
-                margin: 0 !important;
             }
             .calendar-day {
                 background-color: #e6f3ff !important;
@@ -435,8 +426,6 @@ def visualizacao_geral():
                 width: 14.28% !important;
                 max-width: 28mm !important;
                 box-sizing: border-box !important;
-                margin: 0 !important;
-                padding: 0 !important;
             }
         }
         </style>
@@ -455,15 +444,12 @@ def visualizacao_geral():
 
     # Contêiner para o calendário atual
     st.markdown(f"<div class='printable-content'><h3 style='font-size: 8pt;'>Calendário de {calendar.month_name[mes]} {ano}</h3>", unsafe_allow_html=True)
-    st.markdown("<div class='calendar-row'>", unsafe_allow_html=True)
     header_cols = st.columns(7)
     for i, dia_semana in enumerate(dias_da_semana):
         with header_cols[i]:
             st.markdown(f"<div class='calendar-cell-header'>{dia_semana}</div>", unsafe_allow_html=True)
-    st.markdown("</div>", unsafe_allow_html=True)
 
     for semana in cal:
-        st.markdown("<div class='calendar-row'>", unsafe_allow_html=True)
         cols = st.columns(7)
         for i, dia in enumerate(semana):
             with cols[i]:
@@ -501,24 +487,20 @@ def visualizacao_geral():
                         cell_content += f"<div style='color: red; text-align: center; font-size: 5pt;'>Erro: {str(e)}</div>"
                     cell_content += "</div>"
                     st.markdown(cell_content, unsafe_allow_html=True)
-        st.markdown("</div>", unsafe_allow_html=True)
     st.markdown("</div>", unsafe_allow_html=True)
 
     # Contêiner para o próximo mês
     st.markdown(f"<div class='printable-content'><h3 style='font-size: 8pt;'>Previsão para {calendar.month_name[mes + 1 if mes < 12 else 1]} {ano + 1 if mes == 12 else ano}</h3>", unsafe_allow_html=True)
-    st.markdown("<div class='calendar-row'>", unsafe_allow_html=True)
-    header_cols_next = st.columns(7)
-    for i, dia_semana in enumerate(dias_da_semana):
-        with header_cols_next[i]:
-            st.markdown(f"<div class='calendar-cell-header'>{dia_semana}</div>", unsafe_allow_html=True)
-    st.markdown("</div>", unsafe_allow_html=True)
-
     next_month = mes + 1 if mes < 12 else 1
     next_year = ano + 1 if mes == 12 else ano
     next_cal = calendar.monthcalendar(next_year, next_month)
 
+    header_cols_next = st.columns(7)
+    for i, dia_semana in enumerate(dias_da_semana):
+        with header_cols_next[i]:
+            st.markdown(f"<div class='calendar-cell-header'>{dia_semana}</div>", unsafe_allow_html=True)
+
     for semana in next_cal:
-        st.markdown("<div class='calendar-row'>", unsafe_allow_html=True)
         cols = st.columns(7)
         for i, dia in enumerate(semana):
             with cols[i]:
@@ -556,7 +538,6 @@ def visualizacao_geral():
                         cell_content += f"<div style='color: red; text-align: center; font-size: 5pt;'>Erro: {str(e)}</div>"
                     cell_content += "</div>"
                     st.markdown(cell_content, unsafe_allow_html=True)
-        st.markdown("</div>", unsafe_allow_html=True)
     st.markdown("</div>", unsafe_allow_html=True)
 
 # Menu principal
