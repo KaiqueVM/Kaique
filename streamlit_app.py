@@ -108,7 +108,6 @@ class Funcionario:
                                (f.turno == "Noite 1" and dia % 2 == 1) or (f.turno == "Noite 2" and dia % 2 == 0):
                                 prestadores.append(f)
                 else:
-                    # Adiciona mesmo em folga para poder mostrar na escala
                     prestadores.append(f)
             if not f.local:
                 f.local = "UH"
@@ -147,7 +146,7 @@ def login_screen():
             with st.spinner("Verificando credenciais..."):
                 try:
                     funcionario = Funcionario.get_funcionario_por_id(coren)
-                    if not funcionario: # Cria gerente padrão se não existir
+                    if not funcionario:
                         gerente = Funcionario("56.127", "Gerente Padrão", "56.127", "gerente", "FT - EFETIVADO", date.today(), gerente=True)
                         gerente.set_senha("147258")
                         gerente.save()
@@ -272,7 +271,7 @@ def gerenciar_prestadores():
             st.error(f"Erro ao buscar prestadores: {str(e)}")
 
 # =============================================================================
-# FUNÇÃO DE VISUALIZAÇÃO GERAL (TOTALMENTE REFEITA)
+# FUNÇÃO DE VISUALIZAÇÃO GERAL (CORRIGIDA)
 # =============================================================================
 def visualizacao_geral():
     st.header("Visualização Geral dos Plantões")
@@ -282,43 +281,53 @@ def visualizacao_geral():
     <script>
     // Função para preparar a impressão de uma div específica
     function printDiv(divId) {
-        // Encontra todos os conteúdos 'imprimíveis' e remove a classe 'active-print'
-        var allPrintableAreas = document.querySelectorAll('.printable-content');
-        allPrintableAreas.forEach(function(area) {
-            area.classList.remove('active-print');
-        });
-
-        // Adiciona a classe 'active-print' apenas na div que queremos imprimir
         var printableArea = document.getElementById(divId);
         if (printableArea) {
-            printableArea.classList.add('active-print');
-            window.print(); // Chama a impressão do navegador
+            // Esconde todos os elementos exceto a área a ser impressa
+            var allElements = document.getElementsByTagName('*');
+            for (var i = 0; i < allElements.length; i++) {
+                allElements[i].style.display = 'none';
+            }
+            printableArea.style.display = 'block';
+            window.print();
+            // Restaura a visibilidade após a impressão (opcional, depende do navegador)
+            setTimeout(function() {
+                for (var i = 0; i < allElements.length; i++) {
+                    allElements[i].style.display = '';
+                }
+            }, 1000);
+        } else {
+            console.error('Div ' + divId + ' não encontrada!');
         }
     }
     </script>
     <style>
-    /* Estilos que são aplicados APENAS durante a impressão */
     @media print {
-        /* Esconde tudo por padrão */
-        body > * {
+        body * {
             display: none !important;
         }
-        /* Mostra APENAS a área com a classe 'active-print' e seus filhos */
-        .active-print, .active-print * {
+        .printable-content {
             display: block !important;
+            width: 100% !important;
+            height: auto !important;
+            margin: 0 !important;
+            padding: 0 !important;
+            font-size: 8pt !important;
         }
-        /* Posiciona a área de impressão para ocupar a página toda */
-        .active-print {
-            position: absolute;
-            top: 10px;
-            left: 10px;
-            width: 98%;
+        table {
+            width: 100% !important;
+            border-collapse: collapse !important;
+            page-break-inside: avoid !important;
         }
-        /* Garante que o container de colunas do Streamlit se comporte como uma tabela */
-        div[data-testid="stHorizontalBlock"] {
-            display: flex !important;
-            flex-direction: row !important;
-            justify-content: space-between !important;
+        th, td {
+            border: 1px solid #ccc !important;
+            padding: 2px !important;
+            vertical-align: top !important;
+            font-size: 6pt !important;
+        }
+        th {
+            font-weight: bold !important;
+            text-align: center !important;
         }
     }
     </style>
@@ -326,12 +335,11 @@ def visualizacao_geral():
 
     # --- FUNÇÃO AUXILIAR PARA RENDERIZAR O CALENDÁRIO ---
     def render_calendar_html(ano, mes, start_day, end_day):
-        calendar.setfirstweekday(calendar.SUNDAY) # Começa a semana no Domingo
+        calendar.setfirstweekday(calendar.SUNDAY)  # Começa a semana no Domingo
         dias_da_semana = ["Domingo", "Segunda", "Terça", "Quarta", "Quinta", "Sexta", "Sábado"]
         cal = calendar.monthcalendar(ano, mes)
         last_day_parity = calendar.monthrange(ano, mes)[1] % 2 == 0
         
-        # Cabeçalho dos dias da semana
         header_html = "".join([f"<th style='border: 1px solid #ccc; padding: 4px; text-align: center; font-size: 8pt; width: 14%;'>{d}</th>" for d in dias_da_semana])
         html = f"<table style='width: 100%; border-collapse: collapse;'><thead><tr>{header_html}</tr></thead><tbody>"
 
@@ -377,20 +385,24 @@ def visualizacao_geral():
     with tab1:
         st.subheader(f"Escala de {calendar.month_name[mes]} {ano} - Dias 1 a 15")
         if st.button("🖨️ Imprimir 1ª Quinzena", key="btn_q1"):
-            # Chama a função JS para imprimir a div 'quinzena1'
-            streamlit_js_eval(js_expressions="printDiv('quinzena1')")
+            try:
+                streamlit_js_eval(js_expressions="printDiv('quinzena1')", key="print_q1")
+                st.success("Impressão iniciada! Verifique sua janela de impressão.")
+            except Exception as e:
+                st.error(f"Erro ao iniciar impressão: {str(e)}. Tente Ctrl+P manualmente.")
         
-        # Cria o conteúdo da primeira quinzena dentro de uma div com ID específico
         html_q1 = render_calendar_html(ano, mes, 1, 15)
         st.markdown(f"<div id='quinzena1' class='printable-content'>{html_q1}</div>", unsafe_allow_html=True)
         
     with tab2:
         st.subheader(f"Escala de {calendar.month_name[mes]} {ano} - Dias 16 a {ultimo_dia_mes}")
         if st.button(f"🖨️ Imprimir 2ª Quinzena", key="btn_q2"):
-            # Chama a função JS para imprimir a div 'quinzena2'
-            streamlit_js_eval(js_expressions="printDiv('quinzena2')")
-            
-        # Cria o conteúdo da segunda quinzena dentro de uma div com ID específico
+            try:
+                streamlit_js_eval(js_expressions="printDiv('quinzena2')", key="print_q2")
+                st.success("Impressão iniciada! Verifique sua janela de impressão.")
+            except Exception as e:
+                st.error(f"Erro ao iniciar impressão: {str(e)}. Tente Ctrl+P manualmente.")
+        
         html_q2 = render_calendar_html(ano, mes, 16, ultimo_dia_mes)
         st.markdown(f"<div id='quinzena2' class='printable-content'>{html_q2}</div>", unsafe_allow_html=True)
 
