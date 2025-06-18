@@ -25,6 +25,7 @@ def init_db():
 # Classe Funcionario
 class Funcionario:
     _funcionarios = {}
+
     def __init__(self, id, nome, coren, cargo, tipo_vinculo, data_admissao, gerente=False, turno=None, local=None):
         self.id = id
         self.nome = nome
@@ -37,10 +38,13 @@ class Funcionario:
         self.local = local
         self._senha_hash = None
         self.folgas = []  # Lista temporária para uso imediato
+
     def set_senha(self, senha):
         self._senha_hash = hashlib.sha256(senha.encode()).hexdigest()
+
     def checa_senha(self, senha):
         return self._senha_hash == hashlib.sha256(senha.encode()).hexdigest()
+
     def save(self):
         conn = get_db_connection()
         c = conn.cursor()
@@ -61,6 +65,7 @@ class Funcionario:
             st.session_state["funcionarios_state"] = {}
         st.session_state["funcionarios_state"][self.id] = self
         st.write(f"DEBUG: Funcionário salvo com ID {self.id}")
+
     @classmethod
     def load_all(cls):
         conn = get_db_connection()
@@ -76,17 +81,20 @@ class Funcionario:
         if "funcionarios_state" not in st.session_state:
             st.session_state["funcionarios_state"] = {}
         st.session_state["funcionarios_state"].update(cls._funcionarios)
+
     @classmethod
     def get_funcionario_por_id(cls, id):
         if not cls._funcionarios:
             cls.load_all()
         return cls._funcionarios.get(id)
+
     @classmethod
     def buscar_por_nome(cls, nome):
         if not cls._funcionarios:
             cls.load_all()
         nome = nome.strip().lower()
         return [f for f in cls._funcionarios.values() if f.nome.strip().lower().find(nome) != -1]
+
     @classmethod
     def buscar_por_dia(cls, dia, mes, ano, last_day_parity=None):
         if not cls._funcionarios:
@@ -127,6 +135,7 @@ def init_session():
         st.session_state["funcionarios_state"] = {}
     Funcionario._funcionarios = st.session_state["funcionarios_state"]
     Funcionario.load_all()
+    
     hoje = date.today()
     for funcionario in Funcionario._funcionarios.values():
         if funcionario.tipo_vinculo == "AJ - PROGRAMA ANJO":
@@ -139,14 +148,17 @@ def init_session():
 # Tela de login
 def login_screen():
     st.title("Pequeno Cotolengo - Login")
+    
     with st.form("login_form"):
         coren = st.text_input("COREN", value="56.127")
         senha = st.text_input("Senha", type="password", value="147258")
         submitted = st.form_submit_button("Entrar")
+        
         if submitted:
             if not coren or not senha:
                 st.error("Por favor, preencha todos os campos.")
                 return
+                
             with st.spinner("Verificando credenciais..."):
                 try:
                     funcionario = Funcionario.get_funcionario_por_id(coren)
@@ -182,15 +194,18 @@ def adicionar_supervisor():
         nome = st.text_input("Nome do Supervisor", key="nome_supervisor")
         senha = st.text_input("Senha", type="password", key="senha_supervisor")
         submitted = st.form_submit_button("Salvar Supervisor")
+        
         if submitted:
             if not coren or not nome or not senha:
                 st.warning("Por favor, preencha todos os campos obrigatórios.")
                 return
+
             try:
                 existente = Funcionario.get_funcionario_por_id(coren)
                 if existente:
                     st.error("Já existe um supervisor com esse COREN.")
                     return
+
                 novo = Funcionario(coren, nome, coren, "supervisor", "FT - EFETIVADO", date.today(), gerente=False)
                 novo.set_senha(senha)
                 novo.save()
@@ -216,18 +231,22 @@ def adicionar_prestador():
             key="vinculo_prestador"
         )
         salvar = st.form_submit_button("Salvar")
+
     if salvar:
         if not nome or not mat or not coren or not cargo:
             st.warning("Por favor, preencha todos os campos obrigatórios.")
             return
+
         try:
             st.write(f"DEBUG: Tentando adicionar prestador - Nome: {nome}, MAT: {mat}, COREN: {coren}")
             existente = Funcionario.get_funcionario_por_id(mat)
             if existente:
                 st.error("Já existe um prestador com essa matrícula.")
                 return
+
             novo = Funcionario(mat, nome, coren, cargo, tipo_vinculo, data_admissao, gerente=False)
             novo.save()
+
             if mat in Funcionario._funcionarios:
                 st.success("Prestador cadastrado com sucesso!")
                 time.sleep(1)
@@ -241,6 +260,7 @@ def adicionar_prestador():
 # Tela para gerenciar prestadores
 def gerenciar_prestadores():
     st.header("Gerenciar Pessoas Já Cadastradas")
+    
     nome_busca = st.text_input("Digite o nome do prestador para buscar", key="busca_prestador")
     if nome_busca:
         try:
@@ -250,6 +270,7 @@ def gerenciar_prestadores():
             if not prestadores:
                 st.warning("Nenhum prestador encontrado com esse nome.")
                 return
+
             for prestador in prestadores:
                 st.subheader(f"Prestador: {prestador.nome}")
                 st.write(f"Matrícula: {prestador.id}")
@@ -258,6 +279,7 @@ def gerenciar_prestadores():
                 st.write(f"Tipo de Vínculo: {prestador.tipo_vinculo}")
                 st.write(f"Data de Admissão: {prestador.data_admissao}")
                 st.write(f"Folgas: {', '.join([f'{inicio} a {fim}' for inicio, fim in prestador.folgas]) if prestador.folgas else 'Nenhuma'}")
+
                 with st.form(f"form_agendamento_{prestador.id}"):
                     turno = st.selectbox(
                         "Turno",
@@ -275,6 +297,7 @@ def gerenciar_prestadores():
                     salvar_agendamento = st.form_submit_button("Salvar Agendamento")
                     registrar_folga = st.form_submit_button("Registrar Folga")
                     excluir = st.form_submit_button("Excluir Prestador")
+
                     if salvar_agendamento:
                         prestador.turno = turno
                         prestador.local = local
@@ -283,6 +306,7 @@ def gerenciar_prestadores():
                         time.sleep(1)
                         st.session_state["pagina"] = "menu"
                         st.rerun()
+
                     if registrar_folga:
                         if data_inicio_folga > data_fim_folga:
                             st.error("A data de início da folga deve ser anterior ou igual à data de fim.")
@@ -292,6 +316,7 @@ def gerenciar_prestadores():
                             st.success(f"Folga registrada para {prestador.nome} de {data_inicio_folga} a {data_fim_folga}!")
                             time.sleep(1)
                             st.rerun()
+
                     if excluir:
                         if prestador.id in Funcionario._funcionarios:
                             conn = get_db_connection()
@@ -310,51 +335,18 @@ def gerenciar_prestadores():
         except Exception as e:
             st.error(f"Erro ao buscar prestadores: {str(e)}")
 
-# =============================================================================
-# FUNÇÃO CORRIGIDA PARA IMPRESSÃO
-# =============================================================================
+# Tela de visualizacao geral
 def visualizacao_geral():
     st.header("Visualização Geral dos Plantões")
-
-    # 1. CSS customizado para impressão
-    # Este CSS diz ao navegador para esconder tudo, exceto o elemento com id="printable-area"
-    print_css = """
-    <style>
-    @media print {
-        /* Esconde todos os elementos da página por padrão */
-        body * {
-            visibility: hidden;
-        }
-        /* Torna a área de impressão e tudo dentro dela visível */
-        #printable-area, #printable-area * {
-            visibility: visible;
-        }
-        /* Posiciona a área de impressão no canto superior esquerdo da página impressa */
-        #printable-area {
-            position: absolute;
-            left: 0;
-            top: 0;
-            width: 100%;
-        }
-        /* Esconde o botão de imprimir para que ele não apareça no PDF */
-        .stButton {
-            display: none;
-        }
-    }
-    </style>
-    """
-    st.markdown(print_css, unsafe_allow_html=True)
-
+    
     if st.button("Imprimir Tabela"):
         streamlit_js_eval(js_expressions="window.print()")
-
-    # 2. Envolve todo o conteúdo do calendário no contêiner com o id="printable-area"
-    st.markdown('<div id="printable-area">', unsafe_allow_html=True)
 
     hoje = datetime.today()
     ano, mes = hoje.year, hoje.month
     cal = calendar.monthcalendar(ano, mes)
     dias_da_semana = ["Segunda", "Terça", "Quarta", "Quinta", "Sexta", "Sábado", "Domingo"]
+
     last_day = calendar.monthrange(ano, mes)[1]
     last_day_parity = last_day % 2 == 0
 
@@ -362,46 +354,51 @@ def visualizacao_geral():
     header_cols = st.columns(7)
     for i, dia_semana in enumerate(dias_da_semana):
         with header_cols[i]:
-            st.markdown(f"**{dia_semana}**")
+            st.markdown(f"<div style='text-align: center; font-weight: bold;'>{dia_semana}</div>", unsafe_allow_html=True)
 
     for semana in cal:
         cols = st.columns(7)
         for i, dia in enumerate(semana):
             with cols[i]:
                 if dia == 0:
-                    st.markdown("<div>&nbsp;</div>", unsafe_allow_html=True)
+                    st.markdown("<div style='border: 1px solid #bbb; padding: 2px; min-height: 30px; background-color: #343a40;'></div>", unsafe_allow_html=True)
                 else:
-                    # Use st.expander para organizar melhor e economizar espaço
-                    with st.expander(f"**{dia}**", expanded=True):
-                        prestadores = Funcionario.buscar_por_dia(dia, mes, ano, last_day_parity)
-                        try:
-                            if prestadores:
-                                prestadores_dia = sorted([p for p in prestadores if "Dia" in p.turno and not any(date(ano, mes, dia) <= data_fim and date(ano, mes, dia) >= data_inicio for data_inicio, data_fim in p.folgas)], key=lambda x: x.nome)
-                                prestadores_noite = sorted([p for p in prestadores if "Noite" in p.turno and not any(date(ano, mes, dia) <= data_fim and date(ano, mes, dia) >= data_inicio for data_inicio, data_fim in p.folgas)], key=lambda x: x.nome)
-                                folgas_dia = sorted([p for p in prestadores if "Dia" in p.turno and any(date(ano, mes, dia) <= data_fim and date(ano, mes, dia) >= data_inicio for data_inicio, data_fim in p.folgas)], key=lambda x: x.nome)
-                                folgas_noite = sorted([p for p in prestadores if "Noite" in p.turno and any(date(ano, mes, dia) <= data_fim and date(ano, mes, dia) >= data_inicio for data_inicio, data_fim in p.folgas)], key=lambda x: x.nome)
+                    prestadores = Funcionario.buscar_por_dia(dia, mes, ano, last_day_parity)
+                    cell_content = f"<div style='border: 1px solid #bbb; padding: 2px; min-height: 30px; background-color: #343a40;'>"
+                    cell_content += f"<div style='font-weight: bold; text-align: center; font-size: 12px; color: #ffffff;'>{dia}</div>"
+                    try:
+                        if prestadores:
+                            prestadores_dia = sorted([p for p in prestadores if "Dia" in p.turno and not any(date(ano, mes, dia) <= data_fim and date(ano, mes, dia) >= data_inicio for data_inicio, data_fim in p.folgas)], key=lambda x: x.nome)
+                            prestadores_noite = sorted([p for p in prestadores if "Noite" in p.turno and not any(date(ano, mes, dia) <= data_fim and date(ano, mes, dia) >= data_inicio for data_inicio, data_fim in p.folgas)], key=lambda x: x.nome)
+                            folgas_dia = sorted([p for p in prestadores if "Dia" in p.turno and any(date(ano, mes, dia) <= data_fim and date(ano, mes, dia) >= data_inicio for data_inicio, data_fim in p.folgas)], key=lambda x: x.nome)
+                            folgas_noite = sorted([p for p in prestadores if "Noite" in p.turno and any(date(ano, mes, dia) <= data_fim and date(ano, mes, dia) >= data_inicio for data_inicio, data_fim in p.folgas)], key=lambda x: x.nome)
 
-                                if prestadores_dia or folgas_dia:
-                                    st.markdown("**7h às 19h**")
-                                    for p in prestadores_dia:
-                                        sigla = "AJ" if p.tipo_vinculo == "AJ - PROGRAMA ANJO" else "FT"
-                                        st.markdown(f"<div style='background-color:#d1e7ff; padding: 2px; border-radius: 3px; margin-bottom: 2px;'>{p.nome} ({p.cargo}) - {sigla} {p.local}</div>", unsafe_allow_html=True)
-                                    for p in folgas_dia:
-                                        st.markdown(f"<div style='background-color:#cccccc; padding: 2px; border-radius: 3px; margin-bottom: 2px;'>{p.nome} (Folga)</div>", unsafe_allow_html=True)
+                            if prestadores_dia or folgas_dia:
+                                cell_content += "<div style='font-size: 10px; font-weight: bold; text-align: center; margin-top: 2px; color: #ffffff;'>7h às 19h</div>"
+                                for p in prestadores_dia:
+                                    bg_color = "#d1e7ff"
+                                    sigla = "AJ" if p.tipo_vinculo == "AJ - PROGRAMA ANJO" else "FT"
+                                    cell_content += f"<div style='background-color: {bg_color}; padding: 1px; margin: 1px; border-radius: 2px; font-size: 10px; text-align: left; color: #000000;'>{p.nome} ({p.coren}), {p.cargo}, {sigla} {p.local}<br>{p.turno}</div>"
+                                for p in folgas_dia:
+                                    bg_color = "#cccccc"
+                                    cell_content += f"<div style='background-color: {bg_color}; padding: 1px; margin: 1px; border-radius: 2px; font-size: 10px; text-align: left; color: #000000;'>{p.nome} ({p.coren}), {p.cargo} (Folga)</div>"
 
-                                if prestadores_noite or folgas_noite:
-                                    st.markdown("**19h às 7h**")
-                                    for p in prestadores_noite:
-                                        sigla = "AJ" if p.tipo_vinculo == "AJ - PROGRAMA ANJO" else "FT"
-                                        st.markdown(f"<div style='background-color:#ffd1dc; padding: 2px; border-radius: 3px; margin-bottom: 2px;'>{p.nome} ({p.cargo}) - {sigla} {p.local}</div>", unsafe_allow_html=True)
-                                    for p in folgas_noite:
-                                        st.markdown(f"<div style='background-color:#cccccc; padding: 2px; border-radius: 3px; margin-bottom: 2px;'>{p.nome} (Folga)</div>", unsafe_allow_html=True)
-                            else:
-                                st.write("Nenhum plantão")
-                        except Exception as e:
-                            st.write(f"Erro: {str(e)}")
+                            if prestadores_noite or folgas_noite:
+                                cell_content += "<div style='font-size: 10px; font-weight: bold; text-align: center; margin-top: 2px; color: #ffffff;'>19h às 7h</div>"
+                                for p in prestadores_noite:
+                                    bg_color = "#ffd1dc"
+                                    sigla = "AJ" if p.tipo_vinculo == "AJ - PROGRAMA ANJO" else "FT"
+                                    cell_content += f"<div style='background-color: {bg_color}; padding: 1px; margin: 1px; border-radius: 2px; font-size: 10px; text-align: left; color: #000000;'>{p.nome} ({p.coren}), {p.cargo}, {sigla} {p.local}<br>{p.turno}</div>"
+                                for p in folgas_noite:
+                                    bg_color = "#cccccc"
+                                    cell_content += f"<div style='background-color: {bg_color}; padding: 1px; margin: 1px; border-radius: 2px; font-size: 10px; text-align: left; color: #000000;'>{p.nome} ({p.coren}), {p.cargo} (Folga)</div>"
+                        else:
+                            cell_content += "<div style='color: #bbbbbb; font-style: italic; text-align: center; font-size: 10px;'>Nenhum plantão</div>"
+                    except Exception as e:
+                        cell_content += f"<div style='color: red; text-align: center; font-size: 10px;'>Erro: {str(e)}</div>"
+                    cell_content += "</div>"
+                    st.markdown(cell_content, unsafe_allow_html=True)
 
-    # Previsão para o próximo mês
     st.markdown(f"### Previsão para {calendar.month_name[mes + 1 if mes < 12 else 1]} {ano + 1 if mes == 12 else ano}")
     next_month = mes + 1 if mes < 12 else 1
     next_year = ano + 1 if mes == 12 else ano
@@ -410,59 +407,67 @@ def visualizacao_geral():
     header_cols_next = st.columns(7)
     for i, dia_semana in enumerate(dias_da_semana):
         with header_cols_next[i]:
-            st.markdown(f"**{dia_semana}**")
-    
+            st.markdown(f"<div style='text-align: center; font-weight: bold;'>{dia_semana}</div>", unsafe_allow_html=True)
+
     for semana in next_cal:
         cols = st.columns(7)
         for i, dia in enumerate(semana):
             with cols[i]:
                 if dia == 0:
-                    st.markdown("<div>&nbsp;</div>", unsafe_allow_html=True)
+                    st.markdown("<div style='border: 1px solid #bbb; padding: 2px; min-height: 30px; background-color: #343a40;'></div>", unsafe_allow_html=True)
                 else:
-                    with st.expander(f"**{dia}**", expanded=True):
-                        prestadores = Funcionario.buscar_por_dia(dia, next_month, next_year, last_day_parity)
-                        try:
-                            if prestadores:
-                                prestadores_dia = sorted([p for p in prestadores if "Dia" in p.turno and not any(date(next_year, next_month, dia) <= data_fim and date(next_year, next_month, dia) >= data_inicio for data_inicio, data_fim in p.folgas)], key=lambda x: x.nome)
-                                prestadores_noite = sorted([p for p in prestadores if "Noite" in p.turno and not any(date(next_year, next_month, dia) <= data_fim and date(next_year, next_month, dia) >= data_inicio for data_inicio, data_fim in p.folgas)], key=lambda x: x.nome)
-                                folgas_dia = sorted([p for p in prestadores if "Dia" in p.turno and any(date(next_year, next_month, dia) <= data_fim and date(next_year, next_month, dia) >= data_inicio for data_inicio, data_fim in p.folgas)], key=lambda x: x.nome)
-                                folgas_noite = sorted([p for p in prestadores if "Noite" in p.turno and any(date(next_year, next_month, dia) <= data_fim and date(next_year, next_month, dia) >= data_inicio for data_inicio, data_fim in p.folgas)], key=lambda x: x.nome)
+                    prestadores = Funcionario.buscar_por_dia(dia, next_month, next_year, last_day_parity)
+                    cell_content = f"<div style='border: 1px solid #bbb; padding: 2px; min-height: 30px; background-color: #343a40;'>"
+                    cell_content += f"<div style='font-weight: bold; text-align: center; font-size: 12px; color: #ffffff;'>{dia}</div>"
+                    try:
+                        if prestadores:
+                            prestadores_dia = sorted([p for p in prestadores if "Dia" in p.turno and not any(date(next_year, next_month, dia) <= data_fim and date(next_year, next_month, dia) >= data_inicio for data_inicio, data_fim in p.folgas)], key=lambda x: x.nome)
+                            prestadores_noite = sorted([p for p in prestadores if "Noite" in p.turno and not any(date(next_year, next_month, dia) <= data_fim and date(next_year, next_month, dia) >= data_inicio for data_inicio, data_fim in p.folgas)], key=lambda x: x.nome)
+                            folgas_dia = sorted([p for p in prestadores if "Dia" in p.turno and any(date(next_year, next_month, dia) <= data_fim and date(next_year, next_month, dia) >= data_inicio for data_inicio, data_fim in p.folgas)], key=lambda x: x.nome)
+                            folgas_noite = sorted([p for p in prestadores if "Noite" in p.turno and any(date(next_year, next_month, dia) <= data_fim and date(next_year, next_month, dia) >= data_inicio for data_inicio, data_fim in p.folgas)], key=lambda x: x.nome)
 
-                                if prestadores_dia or folgas_dia:
-                                    st.markdown("**7h às 19h**")
-                                    for p in prestadores_dia:
-                                        sigla = "AJ" if p.tipo_vinculo == "AJ - PROGRAMA ANJO" else "FT"
-                                        st.markdown(f"<div style='background-color:#d1e7ff; padding: 2px; border-radius: 3px; margin-bottom: 2px;'>{p.nome} ({p.cargo}) - {sigla} {p.local}</div>", unsafe_allow_html=True)
-                                    for p in folgas_dia:
-                                        st.markdown(f"<div style='background-color:#cccccc; padding: 2px; border-radius: 3px; margin-bottom: 2px;'>{p.nome} (Folga)</div>", unsafe_allow_html=True)
+                            if prestadores_dia or folgas_dia:
+                                cell_content += "<div style='font-size: 10px; font-weight: bold; text-align: center; margin-top: 2px; color: #ffffff;'>7h às 19h</div>"
+                                for p in prestadores_dia:
+                                    bg_color = "#d1e7ff"
+                                    sigla = "AJ" if p.tipo_vinculo == "AJ - PROGRAMA ANJO" else "FT"
+                                    cell_content += f"<div style='background-color: {bg_color}; padding: 1px; margin: 1px; border-radius: 2px; font-size: 10px; text-align: left; color: #000000;'>{p.nome} ({p.coren}), {p.cargo}, {sigla} {p.local}<br>{p.turno}</div>"
+                                for p in folgas_dia:
+                                    bg_color = "#cccccc"
+                                    cell_content += f"<div style='background-color: {bg_color}; padding: 1px; margin: 1px; border-radius: 2px; font-size: 10px; text-align: left; color: #000000;'>{p.nome} ({p.coren}), {p.cargo} (Folga)</div>"
 
-                                if prestadores_noite or folgas_noite:
-                                    st.markdown("**19h às 7h**")
-                                    for p in prestadores_noite:
-                                        sigla = "AJ" if p.tipo_vinculo == "AJ - PROGRAMA ANJO" else "FT"
-                                        st.markdown(f"<div style='background-color:#ffd1dc; padding: 2px; border-radius: 3px; margin-bottom: 2px;'>{p.nome} ({p.cargo}) - {sigla} {p.local}</div>", unsafe_allow_html=True)
-                                    for p in folgas_noite:
-                                        st.markdown(f"<div style='background-color:#cccccc; padding: 2px; border-radius: 3px; margin-bottom: 2px;'>{p.nome} (Folga)</div>", unsafe_allow_html=True)
-                            else:
-                                st.write("Nenhum plantão")
-                        except Exception as e:
-                            st.write(f"Erro: {str(e)}")
-
-    # 3. Fecha o contêiner de impressão
-    st.markdown('</div>', unsafe_allow_html=True)
+                            if prestadores_noite or folgas_noite:
+                                cell_content += "<div style='font-size: 10px; font-weight: bold; text-align: center; margin-top: 2px; color: #ffffff;'>19h às 7h</div>"
+                                for p in prestadores_noite:
+                                    bg_color = "#ffd1dc"
+                                    sigla = "AJ" if p.tipo_vinculo == "AJ - PROGRAMA ANJO" else "FT"
+                                    cell_content += f"<div style='background-color: {bg_color}; padding: 1px; margin: 1px; border-radius: 2px; font-size: 10px; text-align: left; color: #000000;'>{p.nome} ({p.coren}), {p.cargo}, {sigla} {p.local}<br>{p.turno}</div>"
+                                for p in folgas_noite:
+                                    bg_color = "#cccccc"
+                                    cell_content += f"<div style='background-color: {bg_color}; padding: 1px; margin: 1px; border-radius: 2px; font-size: 10px; text-align: left; color: #000000;'>{p.nome} ({p.coren}), {p.cargo} (Folga)</div>"
+                        else:
+                            cell_content += "<div style='color: #bbbbbb; font-style: italic; text-align: center; font-size: 10px;'>Nenhum plantão</div>"
+                    except Exception as e:
+                        cell_content += f"<div style='color: red; text-align: center; font-size: 10px;'>Erro: {str(e)}</div>"
+                    cell_content += "</div>"
+                    st.markdown(cell_content, unsafe_allow_html=True)
 
 # Menu principal
 def main_menu():
     st.sidebar.title(f"Bem-vindo(a), {st.session_state['usuario']['nome']}")
+    
     pagina = st.sidebar.radio(
         "Selecione uma opção:",
         ["Adicionar novo prestador", "Gerenciar prestadores", "Visualização geral"]
     )
+    
     if st.session_state["usuario"]["gerente"]:
         if st.sidebar.button("Novo Registro (Supervisor)"):
             st.session_state["pagina"] = "adicionar_supervisor"
             st.rerun()
+    
     st.session_state["pagina"] = pagina
+    
     if pagina == "Adicionar novo prestador":
         adicionar_prestador()
     elif pagina == "Gerenciar prestadores":
@@ -482,6 +487,7 @@ def logout_button():
 def main():
     st.set_page_config(page_title="Sistema Cotolengo", layout="wide")
     init_session()
+    
     if not st.session_state["autenticado"]:
         login_screen()
     elif st.session_state["pagina"] == "adicionar_supervisor" and st.session_state["usuario"]["gerente"]:
