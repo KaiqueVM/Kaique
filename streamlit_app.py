@@ -335,13 +335,58 @@ def gerenciar_prestadores():
         except Exception as e:
             st.error(f"Erro ao buscar prestadores: {str(e)}")
 
-# Tela de visualizacao geral
+# Tela de visualização geral
 def visualizacao_geral():
     st.header("Visualização Geral dos Plantões")
     
-    if st.button("Imprimir Tabela"):
-        streamlit_js_eval(js_expressions="window.print()")
+    # Adicionar CSS para impressão
+    st.markdown("""
+        <style>
+        @media print {
+            body {
+                background-color: white !important;
+                color: black !important;
+            }
+            .stApp, .main, .block-container {
+                background-color: white !important;
+                color: black !important;
+                width: 100% !important;
+                max-width: none !important;
+            }
+            [data-testid="stSidebar"] {
+                display: none !important;
+            }
+            div[style*="background-color: #343a40"] {
+                background-color: white !important;
+                border: 1px solid black !important;
+                color: black !important;
+            }
+            div[style*="background-color: #d1e7ff"], 
+            div[style*="background-color: #ffd1dc"],
+            div[style*="background-color: #cccccc"] {
+                border: 1px solid #ccc !important;
+                color: black !important;
+            }
+            div[style*="color: #ffffff"] {
+                color: black !important;
+            }
+            div[style*="color: #bbbbbb"] {
+                color: black !important;
+            }
+            .stButton, .stMarkdown, .stHeader {
+                page-break-inside: avoid !important;
+            }
+        }
+        </style>
+    """, unsafe_allow_html=True)
 
+    # Botão de impressão com fallback
+    if st.button("Imprimir Tabela"):
+        try:
+            streamlit_js_eval(js_expressions="window.print()")
+        except Exception as e:
+            st.warning("Não foi possível iniciar a impressão automaticamente. Por favor, use a função de impressão do seu navegador (Ctrl+P ou Cmd+P).")
+    
     hoje = datetime.today()
     ano, mes = hoje.year, hoje.month
     cal = calendar.monthcalendar(ano, mes)
