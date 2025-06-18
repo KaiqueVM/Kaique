@@ -3,7 +3,6 @@ from datetime import date, datetime, timedelta
 import calendar
 import hashlib
 import time
-from streamlit_js_eval import streamlit_js_eval
 import sqlite3
 
 # Conexão com o banco de dados SQLite
@@ -271,67 +270,47 @@ def gerenciar_prestadores():
             st.error(f"Erro ao buscar prestadores: {str(e)}")
 
 # =============================================================================
-# FUNÇÃO DE VISUALIZAÇÃO GERAL (CORRIGIDA)
+# FUNÇÃO DE VISUALIZAÇÃO GERAL (AJUSTADA PARA IMPRESSÃO COM CTRL+P)
 # =============================================================================
 def visualizacao_geral():
     st.header("Visualização Geral dos Plantões")
 
-    # --- INJEÇÃO DE JAVASCRIPT E CSS PARA IMPRESSÃO ---
+    # Adicionar CSS para impressão
     st.markdown("""
-    <script>
-    // Função para preparar a impressão de uma div específica
-    function printDiv(divId) {
-        var printableArea = document.getElementById(divId);
-        if (printableArea) {
-            // Esconde todos os elementos exceto a área a ser impressa
-            var allElements = document.getElementsByTagName('*');
-            for (var i = 0; i < allElements.length; i++) {
-                allElements[i].style.display = 'none';
+        <style>
+        @media print {
+            body * {
+                display: none !important;
             }
-            printableArea.style.display = 'block';
-            window.print();
-            // Restaura a visibilidade após a impressão (opcional, depende do navegador)
-            setTimeout(function() {
-                for (var i = 0; i < allElements.length; i++) {
-                    allElements[i].style.display = '';
-                }
-            }, 1000);
-        } else {
-            console.error('Div ' + divId + ' não encontrada!');
+            .printable-content, .printable-content * {
+                display: block !important;
+                width: 100% !important;
+                height: auto !important;
+                margin: 0 !important;
+                padding: 0 !important;
+                font-size: 8pt !important;
+            }
+            table {
+                width: 100% !important;
+                border-collapse: collapse !important;
+                page-break-inside: avoid !important;
+            }
+            th, td {
+                border: 1px solid #ccc !important;
+                padding: 2px !important;
+                vertical-align: top !important;
+                font-size: 6pt !important;
+            }
+            th {
+                font-weight: bold !important;
+                text-align: center !important;
+            }
         }
-    }
-    </script>
-    <style>
-    @media print {
-        body * {
-            display: none !important;
-        }
-        .printable-content {
-            display: block !important;
-            width: 100% !important;
-            height: auto !important;
-            margin: 0 !important;
-            padding: 0 !important;
-            font-size: 8pt !important;
-        }
-        table {
-            width: 100% !important;
-            border-collapse: collapse !important;
-            page-break-inside: avoid !important;
-        }
-        th, td {
-            border: 1px solid #ccc !important;
-            padding: 2px !important;
-            vertical-align: top !important;
-            font-size: 6pt !important;
-        }
-        th {
-            font-weight: bold !important;
-            text-align: center !important;
-        }
-    }
-    </style>
+        </style>
     """, unsafe_allow_html=True)
+
+    # Instrução para impressão
+    st.info("Para imprimir a escala, pressione **Ctrl+P** (Windows) ou **Cmd+P** (Mac) no seu navegador e selecione a quinzena desejada.")
 
     # --- FUNÇÃO AUXILIAR PARA RENDERIZAR O CALENDÁRIO ---
     def render_calendar_html(ano, mes, start_day, end_day):
@@ -380,31 +359,17 @@ def visualizacao_geral():
     ultimo_dia_mes = calendar.monthrange(ano, mes)[1]
     
     # --- ABAS PARA CADA QUINZENA ---
-    tab1, tab2 = st.tabs(["Imprimir 1ª Quinzena (1-15)", "Imprimir 2ª Quinzena (16-Fim)"])
+    tab1, tab2 = st.tabs(["1ª Quinzena (1-15)", "2ª Quinzena (16-Fim)"])
 
     with tab1:
         st.subheader(f"Escala de {calendar.month_name[mes]} {ano} - Dias 1 a 15")
-        if st.button("🖨️ Imprimir 1ª Quinzena", key="btn_q1"):
-            try:
-                streamlit_js_eval(js_expressions="printDiv('quinzena1')", key="print_q1")
-                st.success("Impressão iniciada! Verifique sua janela de impressão.")
-            except Exception as e:
-                st.error(f"Erro ao iniciar impressão: {str(e)}. Tente Ctrl+P manualmente.")
-        
         html_q1 = render_calendar_html(ano, mes, 1, 15)
-        st.markdown(f"<div id='quinzena1' class='printable-content'>{html_q1}</div>", unsafe_allow_html=True)
+        st.markdown(f"<div class='printable-content'>{html_q1}</div>", unsafe_allow_html=True)
         
     with tab2:
         st.subheader(f"Escala de {calendar.month_name[mes]} {ano} - Dias 16 a {ultimo_dia_mes}")
-        if st.button(f"🖨️ Imprimir 2ª Quinzena", key="btn_q2"):
-            try:
-                streamlit_js_eval(js_expressions="printDiv('quinzena2')", key="print_q2")
-                st.success("Impressão iniciada! Verifique sua janela de impressão.")
-            except Exception as e:
-                st.error(f"Erro ao iniciar impressão: {str(e)}. Tente Ctrl+P manualmente.")
-        
         html_q2 = render_calendar_html(ano, mes, 16, ultimo_dia_mes)
-        st.markdown(f"<div id='quinzena2' class='printable-content'>{html_q2}</div>", unsafe_allow_html=True)
+        st.markdown(f"<div class='printable-content'>{html_q2}</div>", unsafe_allow_html=True)
 
 # Menu principal
 def main_menu():
