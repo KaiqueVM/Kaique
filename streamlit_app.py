@@ -6,13 +6,24 @@ import time
 from streamlit_js_eval import streamlit_js_eval
 import sqlite3
 
-# Conexão com o banco de dados SQLite
+# =============================================================================
+# CONEXÃO COM O BANCO DE DADOS E INICIALIZAÇÃO
+# AVISO: A persistência de dados a longo prazo (mais de 1 dia) requer
+# a mudança para um banco de dados na nuvem (ex: Supabase, ElephantSQL, etc.).
+# O código abaixo usa um arquivo local (sqlite3) que é apagado em plataformas
+# de hospedagem como o Streamlit Community Cloud.
+# =============================================================================
+
 def get_db_connection():
+    """
+    Para resolver o problema de perda de dados, esta função precisa ser
+    alterada para se conectar a um banco de dados na nuvem.
+    """
     conn = sqlite3.connect('cotolengo.db', check_same_thread=False)
     return conn
 
-# Criar tabelas se não existirem
 def init_db():
+    """Inicializa as tabelas do banco de dados se elas não existirem."""
     conn = get_db_connection()
     c = conn.cursor()
     c.execute('''CREATE TABLE IF NOT EXISTS funcionarios 
@@ -45,7 +56,7 @@ class Funcionario:
         conn = get_db_connection()
         c = conn.cursor()
         c.execute('''INSERT OR REPLACE INTO funcionarios (id, nome, coren, cargo, tipo_vinculo, data_admissao, gerente, turno, local, senha_hash)
-                     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)''',
+                      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)''',
                   (self.id, self.nome, self.coren, self.cargo, self.tipo_vinculo, self.data_admissao.isoformat(),
                    1 if self.gerente else 0, self.turno, self.local, self._senha_hash))
         c.execute('DELETE FROM folgas WHERE id_funcionario = ?', (self.id,))
@@ -114,7 +125,6 @@ class Funcionario:
                 f.local = "UH"
         return prestadores
 
-# Inicializa o estado da sessão e atualiza tipo_vinculo automaticamente
 def init_session():
     init_db()
     if "autenticado" not in st.session_state:
@@ -133,7 +143,6 @@ def init_session():
                 funcionario.tipo_vinculo = "FT - EFETIVADO"
                 funcionario.save()
 
-# Tela de login
 def login_screen():
     st.title("Pequeno Cotolengo - Login")
     with st.form("login_form"):
@@ -165,7 +174,6 @@ def login_screen():
                 except Exception as e:
                     st.error(f"Erro ao autenticar: {str(e)}")
 
-# Adicionar Supervisor / Prestador e Gerenciar (sem alterações)
 def adicionar_supervisor():
     st.header("Adicionar Novo Supervisor")
     with st.form("form_adicionar_supervisor"):
@@ -272,38 +280,52 @@ def gerenciar_prestadores():
             st.error(f"Erro ao buscar prestadores: {str(e)}")
 
 # =============================================================================
-# FUNÇÃO DE VISUALIZAÇÃO GERAL (TOTALMENTE REFEITA)
+# FUNÇÃO DE VISUALIZAÇÃO GERAL (COM CÓDIGO DE IMPRESSÃO CORRIGIDO)
 # =============================================================================
 def visualizacao_geral():
     st.header("Visualização Geral dos Plantões")
 
-    # --- INJEÇÃO DE JAVASCRIPT E CSS PARA IMPRESSÃO ---
+    # --- INJEÇÃO DE JAVASCRIPT E CSS PARA IMPRESSÃO (VERSÃO CORRIGIDA) ---
     st.markdown("""
     <script>
-    // Função para preparar a impressão de uma div específica
-    function printDiv(divId) {
-        // Encontra todos os conteúdos 'imprimíveis' e remove a classe 'active-print'
-        var allPrintableAreas = document.querySelectorAll('.printable-content');
-        allPrintableAreas.forEach(function(area) {
-            area.classList.remove('active-print');
-        });
+    // Armazena a referência do elemento que está sendo impresso
+    let elementToPrint = null;
 
-        // Adiciona a classe 'active-print' apenas na div que queremos imprimir
-        var printableArea = document.getElementById(divId);
-        if (printableArea) {
-            printableArea.classList.add('active-print');
-            window.print(); // Chama a impressão do navegador
+    // Função que é chamada DEPOIS que a janela de impressão é fechada
+    function afterPrint() {
+        if (elementToPrint) {
+            // Remove a classe 'active-print' para que a página volte ao normal
+            elementToPrint.classList.remove('active-print');
+            elementToPrint = null; // Limpa a referência
+        }
+    }
+
+    // O navegador chama esta função quando a janela de impressão fecha
+    window.onafterprint = afterPrint;
+
+    // Função principal chamada pelo botão do Streamlit
+    function printDiv(divId) {
+        // Encontra a div que queremos imprimir
+        elementToPrint = document.getElementById(divId);
+        
+        if (elementToPrint) {
+            // Adiciona a classe que o CSS de impressão usará para mostrar o elemento
+            elementToPrint.classList.add('active-print');
+            // Chama a impressão do navegador.
+            window.print();
+        } else {
+            console.error('Elemento para impressão não encontrado:', divId);
         }
     }
     </script>
     <style>
     /* Estilos que são aplicados APENAS durante a impressão */
     @media print {
-        /* Esconde tudo por padrão */
+        /* Esconde toda a página por padrão */
         body > * {
             display: none !important;
         }
-        /* Mostra APENAS a área com a classe 'active-print' e seus filhos */
+        /* Mostra APENAS o elemento com a classe 'active-print' e seus filhos */
         .active-print, .active-print * {
             display: block !important;
         }
@@ -314,24 +336,17 @@ def visualizacao_geral():
             left: 10px;
             width: 98%;
         }
-        /* Garante que o container de colunas do Streamlit se comporte como uma tabela */
-        div[data-testid="stHorizontalBlock"] {
-            display: flex !important;
-            flex-direction: row !important;
-            justify-content: space-between !important;
-        }
     }
     </style>
     """, unsafe_allow_html=True)
 
     # --- FUNÇÃO AUXILIAR PARA RENDERIZAR O CALENDÁRIO ---
     def render_calendar_html(ano, mes, start_day, end_day):
-        calendar.setfirstweekday(calendar.SUNDAY) # Começa a semana no Domingo
+        calendar.setfirstweekday(calendar.SUNDAY)
         dias_da_semana = ["Domingo", "Segunda", "Terça", "Quarta", "Quinta", "Sexta", "Sábado"]
         cal = calendar.monthcalendar(ano, mes)
         last_day_parity = calendar.monthrange(ano, mes)[1] % 2 == 0
         
-        # Cabeçalho dos dias da semana
         header_html = "".join([f"<th style='border: 1px solid #ccc; padding: 4px; text-align: center; font-size: 8pt; width: 14%;'>{d}</th>" for d in dias_da_semana])
         html = f"<table style='width: 100%; border-collapse: collapse;'><thead><tr>{header_html}</tr></thead><tbody>"
 
@@ -372,43 +387,49 @@ def visualizacao_geral():
     ultimo_dia_mes = calendar.monthrange(ano, mes)[1]
     
     # --- ABAS PARA CADA QUINZENA ---
-    tab1, tab2 = st.tabs(["Imprimir 1ª Quinzena (1-15)", "Imprimir 2ª Quinzena (16-Fim)"])
+    tab1, tab2 = st.tabs(["1ª Quinzena (1-15)", "2ª Quinzena (16-Fim)"])
 
     with tab1:
         st.subheader(f"Escala de {calendar.month_name[mes]} {ano} - Dias 1 a 15")
         if st.button("🖨️ Imprimir 1ª Quinzena", key="btn_q1"):
-            # Chama a função JS para imprimir a div 'quinzena1'
             streamlit_js_eval(js_expressions="printDiv('quinzena1')")
         
-        # Cria o conteúdo da primeira quinzena dentro de uma div com ID específico
         html_q1 = render_calendar_html(ano, mes, 1, 15)
-        st.markdown(f"<div id='quinzena1' class='printable-content'>{html_q1}</div>", unsafe_allow_html=True)
+        # O ID é movido para a div que envolve o conteúdo para impressão
+        st.markdown(f"<div id='quinzena1'>{html_q1}</div>", unsafe_allow_html=True)
         
     with tab2:
         st.subheader(f"Escala de {calendar.month_name[mes]} {ano} - Dias 16 a {ultimo_dia_mes}")
         if st.button(f"🖨️ Imprimir 2ª Quinzena", key="btn_q2"):
-            # Chama a função JS para imprimir a div 'quinzena2'
             streamlit_js_eval(js_expressions="printDiv('quinzena2')")
             
-        # Cria o conteúdo da segunda quinzena dentro de uma div com ID específico
         html_q2 = render_calendar_html(ano, mes, 16, ultimo_dia_mes)
-        st.markdown(f"<div id='quinzena2' class='printable-content'>{html_q2}</div>", unsafe_allow_html=True)
+        # O ID é movido para a div que envolve o conteúdo para impressão
+        st.markdown(f"<div id='quinzena2'>{html_q2}</div>", unsafe_allow_html=True)
 
 # Menu principal
 def main_menu():
     st.sidebar.title(f"Bem-vindo(a), {st.session_state['usuario']['nome']}")
-    pagina = st.sidebar.radio("Selecione uma opção:", ["Adicionar novo prestador", "Gerenciar prestadores", "Visualização geral"])
+    
+    # Lista de opções padrão
+    opcoes = ["Visualização geral", "Gerenciar prestadores", "Adicionar novo prestador"]
+    
+    # Adiciona a opção de supervisor apenas para gerentes
     if st.session_state["usuario"]["gerente"]:
-        if st.sidebar.button("Novo Registro (Supervisor)"):
-            st.session_state["pagina"] = "adicionar_supervisor"
-            st.rerun()
-    st.session_state["pagina"] = pagina
+        opcoes.append("Adicionar novo supervisor")
+
+    pagina = st.sidebar.radio("Selecione uma opção:", opcoes)
+    
+    st.session_state["pagina"] = pagina # Atualiza a página na sessão
+
     if pagina == "Adicionar novo prestador":
         adicionar_prestador()
     elif pagina == "Gerenciar prestadores":
         gerenciar_prestadores()
     elif pagina == "Visualização geral":
         visualizacao_geral()
+    elif pagina == "Adicionar novo supervisor":
+        adicionar_supervisor()
 
 # Botão de logout
 def logout_button():
@@ -420,10 +441,9 @@ def logout_button():
 def main():
     st.set_page_config(page_title="Sistema Cotolengo", layout="wide")
     init_session()
+    
     if not st.session_state.get("autenticado"):
         login_screen()
-    elif st.session_state.get("pagina") == "adicionar_supervisor" and st.session_state.get("usuario", {}).get("gerente"):
-        adicionar_supervisor()
     else:
         logout_button()
         main_menu()
