@@ -10,13 +10,20 @@ import sqlite3
 # CONEXÃO COM O BANCO DE DADOS E INICIALIZAÇÃO
 # AVISO: A persistência de dados a longo prazo (mais de 1 dia) requer
 # a mudança para um banco de dados na nuvem (ex: Supabase, ElephantSQL, etc.).
+# O código abaixo usa um arquivo local (sqlite3) que é apagado em plataformas
+# de hospedagem como o Streamlit Community Cloud.
 # =============================================================================
 
 def get_db_connection():
+    """
+    Para resolver o problema de perda de dados, esta função precisa ser
+    alterada para se conectar a um banco de dados na nuvem.
+    """
     conn = sqlite3.connect('cotolengo.db', check_same_thread=False)
     return conn
 
 def init_db():
+    """Inicializa as tabelas do banco de dados se elas não existirem."""
     conn = get_db_connection()
     c = conn.cursor()
     c.execute('''CREATE TABLE IF NOT EXISTS funcionarios 
@@ -27,7 +34,7 @@ def init_db():
     conn.close()
 
 # =============================================================================
-# NOVA FUNÇÃO PARA INJETAR O SCRIPT DE IMPRESSÃO GLOBALMENTE
+# FUNÇÃO PARA INJETAR O SCRIPT DE IMPRESSÃO GLOBALMENTE
 # =============================================================================
 def inject_print_script():
     """ Injeta o JavaScript e CSS para impressão no início da aplicação. """
@@ -63,7 +70,7 @@ def inject_print_script():
     """, unsafe_allow_html=True)
 
 
-# --- O restante das suas classes e funções permanecem iguais ---
+# --- O restante das suas classes e funções ---
 
 class Funcionario:
     _funcionarios = {}
@@ -312,8 +319,6 @@ def gerenciar_prestadores():
 def visualizacao_geral():
     st.header("Visualização Geral dos Plantões")
 
-    # Esta função não precisa mais do script de impressão, pois ele agora é global.
-
     def render_calendar_html(ano, mes, start_day, end_day):
         calendar.setfirstweekday(calendar.SUNDAY)
         dias_da_semana = ["Domingo", "Segunda", "Terça", "Quarta", "Quinta", "Sexta", "Sábado"]
@@ -355,19 +360,41 @@ def visualizacao_geral():
     ano, mes = hoje.year, hoje.month
     ultimo_dia_mes = calendar.monthrange(ano, mes)[1]
     
+    st.markdown("""
+    <style>
+        .print-button {
+            display: inline-block;
+            padding: 0.25rem 0.75rem;
+            background-color: #f0f2f6;
+            color: #31333f;
+            border: 1px solid #f0f2f6;
+            border-radius: 0.25rem;
+            text-decoration: none;
+            cursor: pointer;
+            font-size: 14px;
+        }
+        .print-button:hover {
+            border-color: #ff4b4b;
+            color: #ff4b4b;
+        }
+        .print-button:active {
+            color: white;
+            background-color: #ff4b4b;
+        }
+    </style>
+    """, unsafe_allow_html=True)
+    
     tab1, tab2 = st.tabs(["1ª Quinzena (1-15)", "2ª Quinzena (16-Fim)"])
 
     with tab1:
         st.subheader(f"Escala de {calendar.month_name[mes]} {ano} - Dias 1 a 15")
-        if st.button("🖨️ Imprimir 1ª Quinzena", key="btn_q1"):
-            streamlit_js_eval(js_expressions="printDiv('quinzena1')")
+        st.markdown("<button class='print-button' onclick=\"printDiv('quinzena1')\">🖨️ Imprimir 1ª Quinzena</button>", unsafe_allow_html=True)
         html_q1 = render_calendar_html(ano, mes, 1, 15)
         st.markdown(f"<div id='quinzena1'>{html_q1}</div>", unsafe_allow_html=True)
         
     with tab2:
         st.subheader(f"Escala de {calendar.month_name[mes]} {ano} - Dias 16 a {ultimo_dia_mes}")
-        if st.button(f"🖨️ Imprimir 2ª Quinzena", key="btn_q2"):
-            streamlit_js_eval(js_expressions="printDiv('quinzena2')")
+        st.markdown(f"<button class='print-button' onclick=\"printDiv('quinzena2')\">🖨️ Imprimir 2ª Quinzena</button>", unsafe_allow_html=True)
         html_q2 = render_calendar_html(ano, mes, 16, ultimo_dia_mes)
         st.markdown(f"<div id='quinzena2'>{html_q2}</div>", unsafe_allow_html=True)
 
@@ -380,7 +407,6 @@ def main_menu():
 
     pagina_selecionada = st.sidebar.radio("Selecione uma opção:", opcoes, key="menu_radio")
     
-    # Navegação entre as páginas
     if pagina_selecionada == "Adicionar novo prestador":
         adicionar_prestador()
     elif pagina_selecionada == "Gerenciar prestadores":
@@ -398,7 +424,7 @@ def logout_button():
 def main():
     st.set_page_config(page_title="Sistema Cotolengo", layout="wide")
     
-    # Injeta o script de impressão uma vez, no início.
+    # Injeta o script de impressão uma vez, no início da sessão.
     inject_print_script() 
     
     init_session()
