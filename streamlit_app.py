@@ -10,20 +10,13 @@ import sqlite3
 # CONEXÃO COM O BANCO DE DADOS E INICIALIZAÇÃO
 # AVISO: A persistência de dados a longo prazo (mais de 1 dia) requer
 # a mudança para um banco de dados na nuvem (ex: Supabase, ElephantSQL, etc.).
-# O código abaixo usa um arquivo local (sqlite3) que é apagado em plataformas
-# de hospedagem como o Streamlit Community Cloud.
 # =============================================================================
 
 def get_db_connection():
-    """
-    Para resolver o problema de perda de dados, esta função precisa ser
-    alterada para se conectar a um banco de dados na nuvem.
-    """
     conn = sqlite3.connect('cotolengo.db', check_same_thread=False)
     return conn
 
 def init_db():
-    """Inicializa as tabelas do banco de dados se elas não existirem."""
     conn = get_db_connection()
     c = conn.cursor()
     c.execute('''CREATE TABLE IF NOT EXISTS funcionarios 
@@ -33,7 +26,45 @@ def init_db():
     conn.commit()
     conn.close()
 
-# Classe Funcionario
+# =============================================================================
+# NOVA FUNÇÃO PARA INJETAR O SCRIPT DE IMPRESSÃO GLOBALMENTE
+# =============================================================================
+def inject_print_script():
+    """ Injeta o JavaScript e CSS para impressão no início da aplicação. """
+    st.markdown("""
+    <script>
+    // Função principal chamada pelo botão do Streamlit
+    function printDiv(divId) {
+        const printContents = document.getElementById(divId).innerHTML;
+        const printWindow = window.open('', '', 'height=800,width=1000');
+        
+        printWindow.document.write('<html><head><title>Imprimir Escala</title>');
+        // Estilos para a impressão
+        printWindow.document.write(`
+            <style>
+                body { font-family: sans-serif; }
+                table { width: 100%; border-collapse: collapse; }
+                td, th { border: 1px solid #ccc; padding: 4px; text-align: center; }
+                div { page-break-inside: avoid; } /* Evita quebras dentro dos 'cards' de nome */
+            </style>
+        `);
+        printWindow.document.write('</head><body>');
+        printWindow.document.write(printContents);
+        printWindow.document.write('</body></html>');
+        printWindow.document.close();
+
+        // Adiciona um pequeno atraso para garantir que o conteúdo foi carregado
+        setTimeout(function() {
+            printWindow.print();
+            printWindow.close();
+        }, 500);
+    }
+    </script>
+    """, unsafe_allow_html=True)
+
+
+# --- O restante das suas classes e funções permanecem iguais ---
+
 class Funcionario:
     _funcionarios = {}
     def __init__(self, id, nome, coren, cargo, tipo_vinculo, data_admissao, gerente=False, turno=None, local=None):
@@ -119,7 +150,6 @@ class Funcionario:
                                (f.turno == "Noite 1" and dia % 2 == 1) or (f.turno == "Noite 2" and dia % 2 == 0):
                                 prestadores.append(f)
                 else:
-                    # Adiciona mesmo em folga para poder mostrar na escala
                     prestadores.append(f)
             if not f.local:
                 f.local = "UH"
@@ -156,7 +186,7 @@ def login_screen():
             with st.spinner("Verificando credenciais..."):
                 try:
                     funcionario = Funcionario.get_funcionario_por_id(coren)
-                    if not funcionario: # Cria gerente padrão se não existir
+                    if not funcionario:
                         gerente = Funcionario("56.127", "Gerente Padrão", "56.127", "gerente", "FT - EFETIVADO", date.today(), gerente=True)
                         gerente.set_senha("147258")
                         gerente.save()
@@ -279,68 +309,11 @@ def gerenciar_prestadores():
         except Exception as e:
             st.error(f"Erro ao buscar prestadores: {str(e)}")
 
-# =============================================================================
-# FUNÇÃO DE VISUALIZAÇÃO GERAL (COM CÓDIGO DE IMPRESSÃO CORRIGIDO)
-# =============================================================================
 def visualizacao_geral():
     st.header("Visualização Geral dos Plantões")
 
-    # --- INJEÇÃO DE JAVASCRIPT E CSS PARA IMPRESSÃO (VERSÃO CORRIGIDA) ---
-    st.markdown("""
-    <script>
-    // Armazena a referência do elemento que está sendo impresso
-    let elementToPrint = null;
+    # Esta função não precisa mais do script de impressão, pois ele agora é global.
 
-    // Função que é chamada DEPOIS que a janela de impressão é fechada
-    function afterPrint() {
-        if (elementToPrint) {
-            // Remove a classe 'active-print' para que a página volte ao normal
-            elementToPrint.classList.remove('active-print');
-            elementToPrint = null; // Limpa a referência
-        }
-    }
-
-    // O navegador chama esta função quando a janela de impressão fecha
-    window.onafterprint = afterPrint;
-
-    // Função principal chamada pelo botão do Streamlit
-    function printDiv(divId) {
-        // Encontra a div que queremos imprimir
-        elementToPrint = document.getElementById(divId);
-        
-        if (elementToPrint) {
-            // Adiciona a classe que o CSS de impressão usará para mostrar o elemento
-            elementToPrint.classList.add('active-print');
-            // Chama a impressão do navegador.
-            window.print();
-        } else {
-            console.error('Elemento para impressão não encontrado:', divId);
-        }
-    }
-    </script>
-    <style>
-    /* Estilos que são aplicados APENAS durante a impressão */
-    @media print {
-        /* Esconde toda a página por padrão */
-        body > * {
-            display: none !important;
-        }
-        /* Mostra APENAS o elemento com a classe 'active-print' e seus filhos */
-        .active-print, .active-print * {
-            display: block !important;
-        }
-        /* Posiciona a área de impressão para ocupar a página toda */
-        .active-print {
-            position: absolute;
-            top: 10px;
-            left: 10px;
-            width: 98%;
-        }
-    }
-    </style>
-    """, unsafe_allow_html=True)
-
-    # --- FUNÇÃO AUXILIAR PARA RENDERIZAR O CALENDÁRIO ---
     def render_calendar_html(ano, mes, start_day, end_day):
         calendar.setfirstweekday(calendar.SUNDAY)
         dias_da_semana = ["Domingo", "Segunda", "Terça", "Quarta", "Quinta", "Sexta", "Sábado"]
@@ -356,14 +329,11 @@ def visualizacao_geral():
                 if dia == 0 or not (start_day <= dia <= end_day):
                     html += "<td style='border: 1px solid #ccc; height: 100px;'></td>"
                     continue
-
                 prestadores = Funcionario.buscar_por_dia(dia, mes, ano, last_day_parity)
                 cell_content = f"<div style='font-weight: bold; text-align: center;'>{dia}</div>"
-                
                 prestadores_dia = sorted([p for p in prestadores if "Dia" in p.turno and not any(date(ano, mes, dia) >= di and date(ano, mes, dia) <= df for di, df in p.folgas)], key=lambda x: x.nome)
                 prestadores_noite = sorted([p for p in prestadores if "Noite" in p.turno and not any(date(ano, mes, dia) >= di and date(ano, mes, dia) <= df for di, df in p.folgas)], key=lambda x: x.nome)
                 folgas = sorted([p for p in prestadores if any(date(ano, mes, dia) >= di and date(ano, mes, dia) <= df for di, df in p.folgas)], key=lambda x: x.nome)
-
                 if prestadores_dia:
                     cell_content += "<div style='font-size: 7pt; text-align: center; font-weight: bold; background-color: #e0e0e0;'>7h-19h</div>"
                     for p in prestadores_dia:
@@ -376,7 +346,6 @@ def visualizacao_geral():
                     cell_content += "<div style='font-size: 7pt; text-align: center; font-weight: bold; background-color: #e0e0e0;'>Folga</div>"
                     for p in folgas:
                         cell_content += f"<div style='font-size: 6pt; background-color: #f0f0f0; padding: 1px; margin-top: 1px; border-radius: 2px;'>{p.nome.split()[0]}</div>"
-
                 html += f"<td style='border: 1px solid #ccc; vertical-align: top; padding: 2px;'>{cell_content}</td>"
             html += "</tr>"
         html += "</tbody></table>"
@@ -386,60 +355,52 @@ def visualizacao_geral():
     ano, mes = hoje.year, hoje.month
     ultimo_dia_mes = calendar.monthrange(ano, mes)[1]
     
-    # --- ABAS PARA CADA QUINZENA ---
     tab1, tab2 = st.tabs(["1ª Quinzena (1-15)", "2ª Quinzena (16-Fim)"])
 
     with tab1:
         st.subheader(f"Escala de {calendar.month_name[mes]} {ano} - Dias 1 a 15")
         if st.button("🖨️ Imprimir 1ª Quinzena", key="btn_q1"):
             streamlit_js_eval(js_expressions="printDiv('quinzena1')")
-        
         html_q1 = render_calendar_html(ano, mes, 1, 15)
-        # O ID é movido para a div que envolve o conteúdo para impressão
         st.markdown(f"<div id='quinzena1'>{html_q1}</div>", unsafe_allow_html=True)
         
     with tab2:
         st.subheader(f"Escala de {calendar.month_name[mes]} {ano} - Dias 16 a {ultimo_dia_mes}")
         if st.button(f"🖨️ Imprimir 2ª Quinzena", key="btn_q2"):
             streamlit_js_eval(js_expressions="printDiv('quinzena2')")
-            
         html_q2 = render_calendar_html(ano, mes, 16, ultimo_dia_mes)
-        # O ID é movido para a div que envolve o conteúdo para impressão
         st.markdown(f"<div id='quinzena2'>{html_q2}</div>", unsafe_allow_html=True)
 
-# Menu principal
 def main_menu():
     st.sidebar.title(f"Bem-vindo(a), {st.session_state['usuario']['nome']}")
     
-    # Lista de opções padrão
     opcoes = ["Visualização geral", "Gerenciar prestadores", "Adicionar novo prestador"]
-    
-    # Adiciona a opção de supervisor apenas para gerentes
     if st.session_state["usuario"]["gerente"]:
         opcoes.append("Adicionar novo supervisor")
 
-    pagina = st.sidebar.radio("Selecione uma opção:", opcoes)
+    pagina_selecionada = st.sidebar.radio("Selecione uma opção:", opcoes, key="menu_radio")
     
-    st.session_state["pagina"] = pagina # Atualiza a página na sessão
-
-    if pagina == "Adicionar novo prestador":
+    # Navegação entre as páginas
+    if pagina_selecionada == "Adicionar novo prestador":
         adicionar_prestador()
-    elif pagina == "Gerenciar prestadores":
+    elif pagina_selecionada == "Gerenciar prestadores":
         gerenciar_prestadores()
-    elif pagina == "Visualização geral":
+    elif pagina_selecionada == "Visualização geral":
         visualizacao_geral()
-    elif pagina == "Adicionar novo supervisor":
+    elif pagina_selecionada == "Adicionar novo supervisor":
         adicionar_supervisor()
 
-# Botão de logout
 def logout_button():
     if st.sidebar.button("Sair"):
-        st.session_state.clear() # Limpa toda a sessão
+        st.session_state.clear()
         st.rerun()
 
-# Código principal
 def main():
     st.set_page_config(page_title="Sistema Cotolengo", layout="wide")
+    
+    # Injeta o script de impressão uma vez, no início.
+    inject_print_script() 
+    
     init_session()
     
     if not st.session_state.get("autenticado"):
