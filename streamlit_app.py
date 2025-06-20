@@ -10,20 +10,13 @@ import sqlite3
 # CONEXÃO COM O BANCO DE DADOS E INICIALIZAÇÃO
 # AVISO: A persistência de dados a longo prazo (mais de 1 dia) requer
 # a mudança para um banco de dados na nuvem (ex: Supabase, ElephantSQL, etc.).
-# O código abaixo usa um arquivo local (sqlite3) que é apagado em plataformas
-# de hospedagem como o Streamlit Community Cloud.
 # =============================================================================
 
 def get_db_connection():
-    """
-    Para resolver o problema de perda de dados, esta função precisa ser
-    alterada para se conectar a um banco de dados na nuvem.
-    """
     conn = sqlite3.connect('cotolengo.db', check_same_thread=False)
     return conn
 
 def init_db():
-    """Inicializa as tabelas do banco de dados se elas não existirem."""
     conn = get_db_connection()
     c = conn.cursor()
     c.execute('''CREATE TABLE IF NOT EXISTS funcionarios 
@@ -34,34 +27,45 @@ def init_db():
     conn.close()
 
 # =============================================================================
-# FUNÇÃO PARA INJETAR O SCRIPT DE IMPRESSÃO GLOBALMENTE
+# NOVA FUNÇÃO PARA INJETAR O SCRIPT DE IMPRESSÃO COM DEBUG
 # =============================================================================
 def inject_print_script():
-    """ Injeta o JavaScript e CSS para impressão no início da aplicação. """
+    """ Injeta o JavaScript de impressão com alertas para depuração. """
     st.markdown("""
     <script>
-    // Função principal chamada pelo botão do Streamlit
+    // Função principal de impressão com alertas de depuração
     function printDiv(divId) {
-        const printContents = document.getElementById(divId).innerHTML;
+        // Alerta 1: Verifica se a função foi chamada
+        alert('Passo 1: A função printDiv foi chamada com o ID: ' + divId);
+
+        const elementToPrint = document.getElementById(divId);
+
+        // Alerta 2: Verifica se o elemento do calendário foi encontrado na página
+        if (!elementToPrint) {
+            alert('ERRO: Não foi possível encontrar o elemento com o ID "' + divId + '". Verifique se a div do calendário existe.');
+            return; // Para a execução
+        }
+        alert('Passo 2: O elemento do calendário foi encontrado com sucesso.');
+
         const printWindow = window.open('', '', 'height=800,width=1000');
         
+        // Alerta 3: Verifica se o navegador bloqueou o pop-up
+        if (!printWindow) {
+            alert('ERRO: O navegador bloqueou a abertura da nova janela (pop-up). Por favor, verifique se há um ícone de bloqueio na barra de endereço e permita pop-ups para este site.');
+            return;
+        }
+        alert('Passo 3: A janela de impressão (pop-up) foi aberta com sucesso.');
+
         printWindow.document.write('<html><head><title>Imprimir Escala</title>');
-        // Estilos para a impressão
-        printWindow.document.write(`
-            <style>
-                body { font-family: sans-serif; }
-                table { width: 100%; border-collapse: collapse; }
-                td, th { border: 1px solid #ccc; padding: 4px; text-align: center; }
-                div { page-break-inside: avoid; } /* Evita quebras dentro dos 'cards' de nome */
-            </style>
-        `);
+        printWindow.document.write('<style> body { font-family: sans-serif; } table { width: 100%; border-collapse: collapse; } td, th { border: 1px solid #ccc; padding: 4px; text-align: center; } div { page-break-inside: avoid; } </style>');
         printWindow.document.write('</head><body>');
-        printWindow.document.write(printContents);
+        printWindow.document.write(elementToPrint.innerHTML);
         printWindow.document.write('</body></html>');
         printWindow.document.close();
 
-        // Adiciona um pequeno atraso para garantir que o conteúdo foi carregado
         setTimeout(function() {
+            // Alerta 4: Verifica se a impressão está prestes a ser chamada
+            alert('Passo 4: Chamando a função de impressão do navegador agora.');
             printWindow.print();
             printWindow.close();
         }, 500);
@@ -70,7 +74,7 @@ def inject_print_script():
     """, unsafe_allow_html=True)
 
 
-# --- O restante das suas classes e funções ---
+# --- O restante do código permanece o mesmo ---
 
 class Funcionario:
     _funcionarios = {}
@@ -363,24 +367,11 @@ def visualizacao_geral():
     st.markdown("""
     <style>
         .print-button {
-            display: inline-block;
-            padding: 0.25rem 0.75rem;
-            background-color: #f0f2f6;
-            color: #31333f;
-            border: 1px solid #f0f2f6;
-            border-radius: 0.25rem;
-            text-decoration: none;
-            cursor: pointer;
-            font-size: 14px;
+            display: inline-block; padding: 0.25rem 0.75rem; background-color: #f0f2f6; color: #31333f;
+            border: 1px solid #f0f2f6; border-radius: 0.25rem; text-decoration: none; cursor: pointer; font-size: 14px;
         }
-        .print-button:hover {
-            border-color: #ff4b4b;
-            color: #ff4b4b;
-        }
-        .print-button:active {
-            color: white;
-            background-color: #ff4b4b;
-        }
+        .print-button:hover { border-color: #ff4b4b; color: #ff4b4b; }
+        .print-button:active { color: white; background-color: #ff4b4b; }
     </style>
     """, unsafe_allow_html=True)
     
@@ -424,7 +415,7 @@ def logout_button():
 def main():
     st.set_page_config(page_title="Sistema Cotolengo", layout="wide")
     
-    # Injeta o script de impressão uma vez, no início da sessão.
+    # Injeta o script de impressão com depuração uma vez, no início da sessão.
     inject_print_script() 
     
     init_session()
